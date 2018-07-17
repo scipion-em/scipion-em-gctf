@@ -25,10 +25,6 @@
 # *
 # **************************************************************************
 """
-Bibtex string file for Gctf program.
-"""
-
-_bibtexStr = """
 
 @article{Zhang2016,
 title = {Gctf: Real-time CTF determination and correction},
@@ -48,6 +44,3 @@ keywords = {Contrast transfer function, Cryo-electron microscopy, GPU program, C
 
 """
 
-from pyworkflow.utils import parseBibTex
-
-_bibtex = parseBibTex(_bibtexStr)  

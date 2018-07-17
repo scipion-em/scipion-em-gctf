@@ -32,8 +32,10 @@ import pyworkflow.em as em
 import pyworkflow.protocol.params as params
 from pyworkflow import VERSION_1_1
 from pyworkflow.utils.properties import Message
-from convert import readCtfModel, parseGctfOutput, getVersion
 from pyworkflow.protocol import STEPS_PARALLEL
+
+import gctf
+from gctf.convert import readCtfModel, parseGctfOutput
 
 
 # Phase shift target type
@@ -364,7 +366,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                           "~/.config/scipion/scipion.conf\n"
                           "and set GCTF variables properly."
                           % self._getProgram())
-        if self.doPhShEst and getVersion() == '0.50':
+        if self.doPhShEst and gctf.Plugin.getActiveVersion() == '0.50':
             errors.append('This version of Gctf (0.50) does not support phase '
                           'shift estimation! Please update to a newer version.')
 
@@ -452,7 +454,7 @@ class ProtGctf(em.ProtCTFMicrographs):
         self._args += "--convsize %d " % self.convsize.get()
         self._args += "--do_Hres_ref %d " % (1 if self.doHighRes else 0)
 
-        if getVersion() == '0.50':
+        if gctf.Plugin.getActiveVersion() == '0.50':
             self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
         else:
             self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
@@ -503,4 +505,4 @@ class ProtGctf(em.ProtCTFMicrographs):
         return program
 
     def _oldVersion(self):
-        return True if getVersion() == '0.50' else False
+        return gctf.Plugin.getActiveVersion() == '0.50'

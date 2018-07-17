@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (sharov@igbmc.fr)
+# * Authors:     J.M. De la Rosa Trevin (delarosatrevin@scilifelab.se) [1]
 # *
-# * L'Institut de genetique et de biologie moleculaire et cellulaire (IGBMC)
+# * [1] SciLifeLab, Stockholm University
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -23,37 +23,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-"""
-This sub-package contains data and protocol classes
-wrapping Kai Zhang's GCTF program
-"""
-import os
 
-_logo = "gctf_logo.png"
-GCTF_HOME = 'GCTF_HOME'
-
-from bibtex import _bibtex # Load bibtex dict with references
-from convert import getEnviron
-
-from protocol_gctf import ProtGctf
-from protocol_gctf_refine import ProtGctfRefine
-
-# Wizards
-from wizard import GctfCTFWizard
-_environ = getEnviron()
-
-# We need this import to register the specific viewing command
-# when visualizing Gctf results
-from viewer import GctfViewer
-
-
-def validateInstallation():
-    """ This function will be used to check if package is properly installed."""
-    missingPaths = ["%s: %s" % (var, _environ[var])
-                    for var in [GCTF_HOME]
-                    if not os.path.exists(_environ[var])]
-
-    if missingPaths:
-        return ["Missing variables:"] + missingPaths
-    else:
-        return [] # No errors
+from convert import *
+from dataimport import *

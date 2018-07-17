@@ -31,13 +31,10 @@ import Tkinter as tk
 import ttk
 
 from pyworkflow.em.constants import *
-
-from protocol_gctf import ProtGctf
-from protocol_gctf_refine import ProtGctfRefine
 import pyworkflow.gui.dialog as dialog
 from pyworkflow.em.wizard import *
 
-from pyworkflow import findResource
+from gctf.protocols import ProtGctf, ProtGctfRefine
 
 #===============================================================================
 # CTFs

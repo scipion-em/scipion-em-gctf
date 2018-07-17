@@ -31,7 +31,7 @@ from pyworkflow.em.plotter import EmPlotter
 from pyworkflow.em.viewer import CtfView
 import pyworkflow.em.showj as showj
 
-from protocol_gctf import ProtGctf
+from gctf.protocols import ProtGctf
 
 
 def createCtfPlot(ctfSet, ctfId):

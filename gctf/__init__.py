@@ -29,31 +29,56 @@ wrapping Kai Zhang's GCTF program
 """
 import os
 
+import pyworkflow.em
+import pyworkflow.utils as pwutils
+
+
 _logo = "gctf_logo.png"
+
 GCTF_HOME = 'GCTF_HOME'
 
-from bibtex import _bibtex # Load bibtex dict with references
-from convert import getEnviron
 
-from protocol_gctf import ProtGctf
-from protocol_gctf_refine import ProtGctfRefine
+# The following class is required for Scipion to detect this Python module
+# as a Scipion Plugin. It needs to specify the PluginMeta __metaclass__
+# Some function related to the underlying package binaries need to be
+# implemented
+class Plugin:
+    __metaclass__ = pyworkflow.em.PluginMeta
 
-# Wizards
-from wizard import GctfCTFWizard
-_environ = getEnviron()
+    @classmethod
+    def getEnviron(cls):
+        """ Return the environ settings to run Gctf program. """
+        environ = pwutils.Environ(os.environ)
 
-# We need this import to register the specific viewing command
-# when visualizing Gctf results
-from viewer import GctfViewer
+        # Take Scipion CUDA library path
+        cudaLib = environ.getFirst(('GCTF_CUDA_LIB', 'CUDA_LIB'))
+        environ.addLibrary(cudaLib)
 
+        return environ
 
-def validateInstallation():
-    """ This function will be used to check if package is properly installed."""
-    missingPaths = ["%s: %s" % (var, _environ[var])
-                    for var in [GCTF_HOME]
-                    if not os.path.exists(_environ[var])]
+    @classmethod
+    def getActiveVersion(cls):
+        """ Return the version of the Gctf binary that is currently active. """
+        path = os.environ[GCTF_HOME]
+        for v in cls.getSupportedVersions():
+            if v in path or v in os.path.realpath(path):
+                return v
+        return ''
 
-    if missingPaths:
-        return ["Missing variables:"] + missingPaths
-    else:
-        return [] # No errors
+    @classmethod
+    def getSupportedVersions(cls):
+        """ Return the list of supported binary versions. """
+        return ['0.50', '1.06']
+
+    @classmethod
+    def validateInstallation(cls):
+        """ This function will be used to check if package is
+        properly installed."""
+        environ = cls.getEnviron()
+
+        missingPaths = ["%s: %s" % (var, environ[var])
+                        for var in [GCTF_HOME]
+                        if not os.path.exists(environ[var])]
+
+        return (["Missing variables:"] + missingPaths) if missingPaths else []
+

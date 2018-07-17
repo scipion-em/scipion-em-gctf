@@ -34,9 +34,9 @@ import re
 import numpy
 from collections import OrderedDict
 
-from pyworkflow.em.packages.gctf import GCTF_HOME
-from pyworkflow.em.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
 from pyworkflow.object import ObjectWrap
+from pyworkflow.em.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
+from pyworkflow.em.transformations import translation_from_matrix
 import pyworkflow.em.metadata as md
 import pyworkflow.utils as pwutils
 
@@ -46,18 +46,6 @@ CTF_DICT = OrderedDict([
        ("_defocusV", md.RLN_CTF_DEFOCUSV),
        ("_defocusAngle", md.RLN_CTF_DEFOCUS_ANGLE)
        ])
-
-
-def getVersion():
-    path = os.environ[GCTF_HOME]
-    for v in getSupportedVersions():
-        if v in path or v in os.path.realpath(path):
-            return v
-    return ''
-
-
-def getSupportedVersions():
-    return ['0.50', '1.06']
 
 
 def parseGctfOutput(filename):
@@ -120,17 +108,6 @@ def readCtfModel(ctfModel, filename, ctf4=False):
     # Avoid creation of phaseShift
     if ctfPhaseShift != 0:
         ctfModel.setPhaseShift(ctfPhaseShift)
-
-
-def getEnviron():
-    """ Return the environ settings to run gautomatch programs. """
-    environ = pwutils.Environ(os.environ)
-
-    # Take Scipion CUDA library path
-    cudaLib = environ.getFirst(('GCTF_CUDA_LIB', 'CUDA_LIB'))
-    environ.addLibrary(cudaLib)
-
-    return environ
 
 
 def writeSetOfCoordinates(coordDir, coordSet, micsSet):
@@ -238,7 +215,7 @@ def getShifts(transform, alignType):
 
 
 def geometryFromMatrix(matrix, inverseTransform):
-    from pyworkflow.em.transformations import translation_from_matrix
+
     if inverseTransform:
         matrix = numpy.linalg.inv(matrix)
         shifts = -translation_from_matrix(matrix)

@@ -36,7 +36,9 @@ from pyworkflow.em.protocol import EMProtocol
 from pyworkflow.em.data import Coordinate
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow import VERSION_1_2
-from convert import getVersion, writeSetOfCoordinates, rowToCtfModel, getShifts
+
+import gctf
+from gctf.convert import writeSetOfCoordinates, rowToCtfModel, getShifts
 
 
 
@@ -646,7 +648,7 @@ class ProtGctfRefine(em.ProtParticles):
         self._args += "--local_resH %d " % self.locResH.get()
         self._args += "--refine_local_astm %d " % (1 if self.locAstm else 0)
 
-        if getVersion() == '0.50':
+        if gctf.Plugin.getActiveVersion() == '0.50':
             self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
         else:
             self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
@@ -682,7 +684,7 @@ class ProtGctfRefine(em.ProtParticles):
         return program
 
     def _oldVersion(self):
-        return True if getVersion() == '0.50' else False
+        return gctf.Plugin.getActiveVersion() == '0.50'
 
     def _getMicrographs(self):
             return self.inputMicrographs.get()

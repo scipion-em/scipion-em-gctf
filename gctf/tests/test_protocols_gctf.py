@@ -25,11 +25,11 @@
 # **************************************************************************
 
 import unittest
-import sys
 
 from pyworkflow.em import *
 from pyworkflow.tests import *
-from pyworkflow.em.packages.gctf import *
+
+from gctf.protocols import ProtGctfRefine, ProtGctf
 
 
 class TestGctfBase(BaseTest):
