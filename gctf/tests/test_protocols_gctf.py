@@ -2,7 +2,7 @@
 # *
 # * Authors:    Grigory Sharov (sharov@igbmc.fr)
 # *
-# * L'Institut de genetique et de biologie moleculaire et cellulaire (IGBMC)
+# * MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -23,8 +23,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-
-import unittest
 
 from pyworkflow.em import *
 from pyworkflow.tests import *
@@ -216,10 +214,3 @@ class TestGctfRefine(TestGctfBase):
                              "SetOfParticles has not been produced.")
         self.assertEqual(protCTF.inputParticles.get().getSize(),
                          protCTF.outputParticles.getSize())
-
-
-if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestGctf)
-    suite = unittest.TestLoader().loadTestsFromName(
-        'test_protocols_gctf.TestGctf.testRunGctf')
-    unittest.TextTestRunner(verbosity=2).run(suite)

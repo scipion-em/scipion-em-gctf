@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (sharov@igbmc.fr)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
 # *
-# * L'Institut de genetique et de biologie moleculaire et cellulaire (IGBMC)
+# * MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -26,21 +26,16 @@
 
 import sys
 import os
-from os.path import join, exists, basename
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.protocol.params as params
-from pyworkflow import VERSION_1_1
 from pyworkflow.utils.properties import Message
 from pyworkflow.protocol import STEPS_PARALLEL
 
 import gctf
 from gctf.convert import readCtfModel, parseGctfOutput
+from gctf.constants import CCC, MAXRES
 
-
-# Phase shift target type
-CCC = 0
-MAXRES = 1
 
 
 class ProtGctf(em.ProtCTFMicrographs):
@@ -52,7 +47,6 @@ class ProtGctf(em.ProtCTFMicrographs):
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
     _label = 'CTF estimation on GPU'
-    _lastUpdateVersion = VERSION_1_1
 
     def __init__(self, **kwargs):
         em.ProtCTFMicrographs.__init__(self, **kwargs)
@@ -147,17 +141,17 @@ class ProtGctf(em.ProtCTFMicrographs):
                       help='Do Equiphase average used for output CTF file. '
                            'Only for nice output, will NOT be used for CTF '
                            'determination.')
-        form.addParam('EPAsmp', params.IntParam, default=4,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      condition='not _oldVersion',
-                      label="Over-sampling factor for EPA")
-        form.addParam('doBasicRotave', params.BooleanParam, default=False,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      condition='_oldVersion',
-                      label="Do rotational average",
-                      help='Do rotational average used for output CTF file. '
-                           'Only for nice output, will NOT be used for CTF '
-                           'determination.')
+
+        if gctf.Plugin.isNewVersion():
+            form.addParam('EPAsmp', params.IntParam, default=4,
+                          expertLevel=params.LEVEL_ADVANCED,
+                          label="Over-sampling factor for EPA")
+            form.addParam('doBasicRotave', params.BooleanParam, default=False,
+                          expertLevel=params.LEVEL_ADVANCED,
+                          label="Do rotational average",
+                          help='Do rotational average used for output CTF file. '
+                               'Only for nice output, will NOT be used for CTF '
+                               'determination.')
         form.addParam('bfactor', params.IntParam, default=150,
                       expertLevel=params.LEVEL_ADVANCED,
                       label="B-factor",
@@ -284,7 +278,7 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         try:
             args = self._args % self._params
-            self.runJob(self._getProgram(), args,  env=self._getEnviron())
+            self.runJob(gctf.Plugin.getProgram(), args,  env=self._getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
 
@@ -326,7 +320,7 @@ class ProtGctf(em.ProtCTFMicrographs):
         pwutils.cleanPath(psdFile)
 
         try:
-            self.runJob(self._getProgram(), self._args % self._params)
+            self.runJob(gctf.Plugin.getProgram(), self._args % self._params)
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
         pwutils.moveFile(micFnCtf, psdFile)
@@ -359,13 +353,6 @@ class ProtGctf(em.ProtCTFMicrographs):
     # -------------------------- INFO functions -------------------------------
     def _validate(self):
         errors = []
-        # Check that the program exists
-        if not exists(self._getProgram()):
-            errors.append("Binary '%s' does not exits.\n"
-                          "Check configuration file: \n"
-                          "~/.config/scipion/scipion.conf\n"
-                          "and set GCTF variables properly."
-                          % self._getProgram())
         if self.doPhShEst and gctf.Plugin.getActiveVersion() == '0.50':
             errors.append('This version of Gctf (0.50) does not support phase '
                           'shift estimation! Please update to a newer version.')
@@ -380,9 +367,6 @@ class ProtGctf(em.ProtCTFMicrographs):
             errors.append("Batch steps are not implemented yet for Gctf. ")
 
         return errors
-
-    def _citations(self):
-        return ['Zhang2016']
 
     def _methods(self):
         if self.inputMicrographs.get() is None:
@@ -496,13 +480,3 @@ class ProtGctf(em.ProtCTFMicrographs):
         ctf.setPsdFile(psdFile)
 
         return ctf
-
-    def _getProgram(self):
-        """ Return the program binary that will be used. """
-        binary = os.environ['GCTF']
-        program = join(os.environ['GCTF_HOME'], 'bin', basename(binary))
-
-        return program
-
-    def _oldVersion(self):
-        return gctf.Plugin.getActiveVersion() == '0.50'

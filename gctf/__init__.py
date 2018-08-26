@@ -1,8 +1,8 @@
 # **************************************************************************
 # *
-# * Authors:     Grigory Sharov (sharov@igbmc.fr)
+# * Authors:     Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
 # *
-# * L'Institut de genetique et de biologie moleculaire et cellulaire (IGBMC)
+# * MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
@@ -23,27 +23,28 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-"""
-This sub-package contains data and protocol classes
-wrapping Kai Zhang's GCTF program
-"""
+
 import os
 
 import pyworkflow.em
 import pyworkflow.utils as pwutils
 
+from .constants import *
+
 
 _logo = "gctf_logo.png"
+_references = ['Zhang2016']
 
-GCTF_HOME = 'GCTF_HOME'
 
+class Plugin(pyworkflow.em.Plugin):
+    _homeVar = GCTF_HOME
+    _pathVars = [GCTF_HOME]
+    _supportedVersions = ['0.50', '1.06']
 
-# The following class is required for Scipion to detect this Python module
-# as a Scipion Plugin. It needs to specify the PluginMeta __metaclass__
-# Some function related to the underlying package binaries need to be
-# implemented
-class Plugin:
-    __metaclass__ = pyworkflow.em.PluginMeta
+    @classmethod
+    def _defineVariables(cls):
+        cls._defineEmVar(GCTF_HOME, 'gctf-1.06')
+        cls._defineVar(GCTF, 'Gctf-v1.06_sm_20_cu8.0_x86_64')
 
     @classmethod
     def getEnviron(cls):
@@ -51,34 +52,23 @@ class Plugin:
         environ = pwutils.Environ(os.environ)
 
         # Take Scipion CUDA library path
-        cudaLib = environ.getFirst(('GCTF_CUDA_LIB', 'CUDA_LIB'))
+        cudaLib = environ.getFirst((GCTF_CUDA_LIB, CUDA_LIB))
         environ.addLibrary(cudaLib)
 
         return environ
 
     @classmethod
-    def getActiveVersion(cls):
-        """ Return the version of the Gctf binary that is currently active. """
-        path = os.environ[GCTF_HOME]
-        for v in cls.getSupportedVersions():
-            if v in path or v in os.path.realpath(path):
-                return v
-        return ''
+    def getProgram(cls):
+        """ Return the program binary that will be used. """
+        if (not GCTF in os.environ or
+            not GCTF_HOME in os.environ):
+            return None
+
+        return os.path.join(os.environ[GCTF_HOME], 'bin',
+                            os.path.basename(os.environ[GCTF]))
 
     @classmethod
-    def getSupportedVersions(cls):
-        """ Return the list of supported binary versions. """
-        return ['0.50', '1.06']
+    def isNewVersion(cls):
+        return not  pyworkflow.em.Plugin.getActiveVersion().startswith("0.50")
 
-    @classmethod
-    def validateInstallation(cls):
-        """ This function will be used to check if package is
-        properly installed."""
-        environ = cls.getEnviron()
-
-        missingPaths = ["%s: %s" % (var, environ[var])
-                        for var in [GCTF_HOME]
-                        if not os.path.exists(environ[var])]
-
-        return (["Missing variables:"] + missingPaths) if missingPaths else []
-
+pyworkflow.em.Domain.registerPlugin(__name__)

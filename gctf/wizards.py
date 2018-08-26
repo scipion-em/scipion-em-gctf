@@ -1,6 +1,7 @@
 # **************************************************************************
 # *
 # * Authors:     Jose Gutierrez (jose.gutierrez@cnb.csic.es)
+# *
 # * Unidad de  Bioinformatica of Centro Nacional de Biotecnologia , CSIC
 # *
 # * This program is free software; you can redistribute it and/or modify
@@ -25,10 +26,6 @@
 """
 This module implement some wizards
 """
-
-import os
-import Tkinter as tk
-import ttk
 
 from pyworkflow.em.constants import *
 import pyworkflow.gui.dialog as dialog
@@ -64,7 +61,6 @@ class GctfCTFWizard(CtfWizard):
         _value = params['value']
         _label = params['label']
 
-#        form.setParamFromVar('inputMicrographs') # update selected input micrographs
         provider = self._getProvider(protocol)
         
         if provider is not None:

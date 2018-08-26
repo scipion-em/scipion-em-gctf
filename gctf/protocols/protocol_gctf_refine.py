@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import os
-from os.path import basename
 
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
@@ -35,21 +34,11 @@ from pyworkflow.em.constants import RELATION_CTF
 from pyworkflow.em.protocol import EMProtocol
 from pyworkflow.em.data import Coordinate
 from pyworkflow.protocol.constants import STEPS_PARALLEL
-from pyworkflow import VERSION_1_2
 
 import gctf
 from gctf.convert import writeSetOfCoordinates, rowToCtfModel, getShifts
+from gctf.constants import *
 
-
-
-# Phase shift target type
-CCC = 0
-MAXRES = 1
-
-# Weighting type for local CTF
-WEIGHT_EQUAL = 0
-WEIGHT_DIST = 1
-WEIGHT_BOTH = 2
 
 
 class ProtGctfRefine(em.ProtParticles):
@@ -61,7 +50,6 @@ class ProtGctfRefine(em.ProtParticles):
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
     _label = 'CTF local refinement'
-    _lastUpdateVersion = VERSION_1_2
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -153,17 +141,18 @@ class ProtGctfRefine(em.ProtParticles):
                       help='Do Equiphase average used for output CTF file. '
                            'Only for nice output, will NOT be used for CTF '
                            'determination.')
-        form.addParam('EPAsmp', params.IntParam, default=4,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      condition='not _oldVersion',
-                      label="Over-sampling factor for EPA")
-        form.addParam('doBasicRotave', params.BooleanParam, default=False,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      condition='_oldVersion',
-                      label="Do rotational average",
-                      help='Do rotational average used for output CTF file. '
-                           'Only for nice output, will NOT be used for CTF '
-                           'determination.')
+
+        if gctf.Plugin.isNewVersion():
+            form.addParam('EPAsmp', params.IntParam, default=4,
+                          expertLevel=params.LEVEL_ADVANCED,
+                          label="Over-sampling factor for EPA")
+            form.addParam('doBasicRotave', params.BooleanParam, default=False,
+                          expertLevel=params.LEVEL_ADVANCED,
+                          label="Do rotational average",
+                          help='Do rotational average used for output CTF file. '
+                               'Only for nice output, will NOT be used for CTF '
+                               'determination.')
+
         form.addParam('bfactor', params.IntParam, default=150,
                       expertLevel=params.LEVEL_ADVANCED,
                       label="B-factor",
@@ -479,7 +468,7 @@ class ProtGctfRefine(em.ProtParticles):
             self._args += "> %(gctfOut)s"
 
             try:
-                self.runJob(self._getProgram(), self._args % self._params,
+                self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
                             env=self._getEnviron())
             except:
                 print("ERROR: Gctf has failed for micrograph %s" % outMic)
@@ -545,13 +534,6 @@ class ProtGctfRefine(em.ProtParticles):
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
-        # Check that the program exists
-        if not pwutils.exists(self._getProgram()):
-            errors.append("Binary '%s' does not exits.\n"
-                          "Check configuration file: \n"
-                          "~/.config/scipion/scipion.conf\n"
-                          "and set GCTF variables properly."
-                          % self._getProgram())
         if self.useInputCtf and not self.ctfRelations.get():
             errors.append("Please provide input CTFs for refinement.")
 
@@ -567,9 +549,6 @@ class ProtGctfRefine(em.ProtParticles):
                            % self.inputParticles.get().getSize())
 
         return summary
-
-    def _citations(self):
-        return ['Zhang2016']
 
     def _methods(self):
         if self.inputParticles.get() is None:
@@ -675,16 +654,6 @@ class ProtGctfRefine(em.ProtParticles):
 
     def _getCtfLocalPath(self, micDir, micBase):
         return os.path.join(micDir, micBase + '_local.star')
-
-    def _getProgram(self):
-        """ Return the program binary that will be used. """
-        binary = os.environ['GCTF']
-        program = pwutils.join(os.environ['GCTF_HOME'], 'bin', basename(binary))
-
-        return program
-
-    def _oldVersion(self):
-        return gctf.Plugin.getActiveVersion() == '0.50'
 
     def _getMicrographs(self):
             return self.inputMicrographs.get()
