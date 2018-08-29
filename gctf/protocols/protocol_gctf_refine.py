@@ -49,7 +49,7 @@ class ProtGctfRefine(em.ProtParticles):
     To find more information about Gctf go to:
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
-    _label = 'CTF local refinement'
+    _label = 'ctf local refinement'
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -112,6 +112,7 @@ class ProtGctfRefine(em.ProtParticles):
                       label='Min')
         line.addParam('maxDefocus', params.FloatParam, default=4.,
                       label='Max')
+
         form.addParam('astigmatism', params.FloatParam, default=100.0,
                       label='Expected (tolerated) astigmatism',
                       help='Estimated astigmatism in Angstroms',
@@ -128,48 +129,56 @@ class ProtGctfRefine(em.ProtParticles):
                       help='Whether to plot an estimated resolution ring '
                            'on the power spectrum',
                       expertLevel=params.LEVEL_ADVANCED)
-        form.addParam('GPUCore', params.IntParam, default=0,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Choose GPU core",
-                      help='GPU may have several cores. Set it to zero if '
-                           'you do not know what we are talking about. '
-                           'First core index is 0, second 1 and so on.')
+
+        form.addHidden(params.GPU_LIST, params.StringParam, default='0',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Choose GPU IDs",
+                       help="GPU may have several cores. Set it to zero"
+                            " if you do not know what we are talking about."
+                            " First core index is 0, second 1 and so on."
+                            " Motioncor2 can use multiple GPUs - in that case"
+                            " set to i.e. *0 1 2*.")
 
         form.addSection(label='Advanced')
-        form.addParam('doEPA', params.BooleanParam, default=False,
-                      label="Do EPA",
-                      help='Do Equiphase average used for output CTF file. '
-                           'Only for nice output, will NOT be used for CTF '
-                           'determination.')
+        group = form.addGroup('EPA')
+        group.addParam('doEPA', params.BooleanParam, default=False,
+                       label="Do EPA",
+                       help='Do Equiphase average used for output CTF file. '
+                            'Only for nice output, will NOT be used for CTF '
+                            'determination.')
 
         if gctf.Plugin.isNewVersion():
-            form.addParam('EPAsmp', params.IntParam, default=4,
-                          expertLevel=params.LEVEL_ADVANCED,
-                          label="Over-sampling factor for EPA")
-            form.addParam('doBasicRotave', params.BooleanParam, default=False,
-                          expertLevel=params.LEVEL_ADVANCED,
-                          label="Do rotational average",
-                          help='Do rotational average used for output CTF file. '
-                               'Only for nice output, will NOT be used for CTF '
-                               'determination.')
+            group.addParam('EPAsmp', params.IntParam, default=4,
+                           condition='doEPA',
+                           expertLevel=params.LEVEL_ADVANCED,
+                           label="Over-sampling factor for EPA")
+            group.addParam('doBasicRotave', params.BooleanParam, default=False,
+                           condition='doEPA',
+                           expertLevel=params.LEVEL_ADVANCED,
+                           label="Do rotational average",
+                           help='Do rotational average used for output CTF file. '
+                                'Only for nice output, will NOT be used for CTF '
+                                'determination.')
+
+        group.addParam('overlap', params.FloatParam, default=0.5,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Overlap factor",
+                       help='Overlapping factor for grid boxes sampling, '
+                            'for windowsize=512, 0.5 means 256 pixels overlapping.')
+        group.addParam('convsize', params.IntParam, default=85,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Boxsize for smoothing",
+                       help='Boxsize to be used for smoothing, '
+                            'suggested 1/5 ~ 1/20 of window size in pixel, '
+                            'e.g. 99 for 512 window')
 
         form.addParam('bfactor', params.IntParam, default=150,
-                      expertLevel=params.LEVEL_ADVANCED,
                       label="B-factor",
                       help='B-factors used to decrease high resolution '
                            'amplitude, A^2; suggested range 50~300 except '
-                           'using REBS method')
-        form.addParam('overlap', params.FloatParam, default=0.5,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Overlap factor",
-                      help='Overlapping factor for grid boxes sampling, '
-                      'for windowsize=512, 0.5 means 256 pixels overlapping.')
-        form.addParam('convsize', params.IntParam, default=85,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label="Boxsize for smoothing",
-                      help='Boxsize to be used for smoothing, '
-                           'suggested 1/5 ~ 1/20 of window size in pixel, '
-                           'e.g. 99 for 512 window')
+                           'using REBS method  (see the paper for the details).')
 
         group = form.addGroup('High-res refinement')
         group.addParam('doHighRes', params.BooleanParam, default=False,
@@ -208,6 +217,7 @@ class ProtGctfRefine(em.ProtParticles):
                            '_lowest resolution_ (e.g. 15A) and smaller '
                            '_boxsize for smoothing_ (e.g. 50 for 1024 '
                            'window size) might be better.')
+
         line = form.addLine('Phase shift range range (deg)',
                             condition='doPhShEst',
                             help='Select _lowest_ and _highest_ phase shift '
@@ -218,19 +228,26 @@ class ProtGctfRefine(em.ProtParticles):
         line.addParam('phaseShiftH', params.FloatParam, default=180.0,
                       condition='doPhShEst',
                       label="Max")
+
         form.addParam('phaseShiftS', params.FloatParam, default=10.0,
-                       condition='doPhShEst',
-                       label="Step",
-                       help='Phase shift search step. Do not worry about '
-                            'the accuracy; this is just the search step, '
-                            'Gctf will refine the phase shift anyway.')
+                      condition='doPhShEst',
+                      label="Step",
+                      help='Phase shift search step. Do not worry about '
+                           'the accuracy; this is just the search step, '
+                           'Gctf will refine the phase shift anyway.')
         form.addParam('phaseShiftT', params.EnumParam, default=CCC,
                       condition='doPhShEst',
                       label='Target',
                       choices=['CCC', 'Resolution limit'],
                       display=params.EnumParam.DISPLAY_HLIST,
                       help='Phase shift target in the search: CCC or '
-                           'resolution limit')
+                           'resolution limit. Second option might generate '
+                           'more accurate estimation if results are '
+                           'essentially correct, but it tends to overfit high '
+                           'resolution noise and might have the potential '
+                           'possibility to generate completely wrong results. '
+                           'The accuracy of CCC method might not be as '
+                           'good, but it is more stable in general cases.')
 
         form.addSection(label='Local refinement')
         line = form.addLine('Local resolution (A)',
@@ -463,7 +480,7 @@ class ProtGctfRefine(em.ProtParticles):
                         break
 
             # final args
-            self._args += "--do_validation %d " % (1 if self.doValidate else 0)
+            self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
             self._args += "%(micFn)s "
             self._args += "> %(gctfOut)s"
 
@@ -491,7 +508,6 @@ class ProtGctfRefine(em.ProtParticles):
             pwutils.cleanPath(micDirTmp)
 
         pwutils.cleanPath(self.matchingMics.getFileName())
-        pwutils.cleanPath(self.getProject().getPath('micrographs_all_gctf.star'))
 
     def createCtfModelStep(self):
         inputSet = self.inputParticles.get()
@@ -534,6 +550,10 @@ class ProtGctfRefine(em.ProtParticles):
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
+        if gctf.Plugin.getActiveVersion() in ['1.18']:
+            errors.append('Gctf version 1.18 does not support local refinement.'
+                          ' Please use version 1.06.')
+
         if self.useInputCtf and not self.ctfRelations.get():
             errors.append("Please provide input CTFs for refinement.")
 
@@ -627,7 +647,7 @@ class ProtGctfRefine(em.ProtParticles):
         self._args += "--local_resH %d " % self.locResH.get()
         self._args += "--refine_local_astm %d " % (1 if self.locAstm else 0)
 
-        if gctf.Plugin.getActiveVersion() == '0.50':
+        if not gctf.Plugin.isNewVersion:
             self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
         else:
             self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
