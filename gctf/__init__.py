@@ -64,12 +64,12 @@ class Plugin(pyworkflow.em.Plugin):
             GCTF_HOME not in os.environ):
             return None
 
-        return os.path.join(os.environ[GCTF_HOME], 'bin',
+        return os.path.join(cls.getHome('bin'),
                             os.path.basename(os.environ[GCTF]))
 
     @classmethod
     def isNewVersion(cls):
-        return not pyworkflow.em.Plugin.getActiveVersion().startswith("0.50")
+        return not cls.getActiveVersion().startswith("0.50")
 
 
 pyworkflow.em.Domain.registerPlugin(__name__)

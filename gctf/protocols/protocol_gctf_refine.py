@@ -321,6 +321,8 @@ class ProtGctfRefine(em.ProtParticles):
                       expertLevel=params.LEVEL_ADVANCED,
                       label='B-factor error',
                       help='Estimated error of input initial B-factor.')
+
+
         form.addParallelSection(threads=0, mpi=0)
 
     # -------------------------- STEPS functions -------------------------------
