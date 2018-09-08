@@ -69,6 +69,7 @@ class Plugin(pyworkflow.em.Plugin):
 
     @classmethod
     def isNewVersion(cls):
+        # exclude the oldest 0.50 version
         return not cls.getActiveVersion().startswith("0.50")
 
 

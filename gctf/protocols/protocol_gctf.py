@@ -170,7 +170,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                             'suggested 1/5 ~ 1/20 of window size in pixel, '
                             'e.g. 99 for 512 window')
 
-        if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+        if self._isLatestVersion():
             group.addParam('smoothResL', params.IntParam, default=1000,
                            expertLevel=params.LEVEL_ADVANCED,
                            condition='doEPA',
@@ -254,7 +254,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                             'The accuracy of CCC method might not be as '
                             'good, but it is more stable in general cases.')
 
-        if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+        if self._isLatestVersion():
              form.addParam('coSearchRefine', params.BooleanParam,
                            default=False, condition='doPhShEst',
                            label='Search and refine simultaneously?',
@@ -295,7 +295,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             downFactor = self.ctfDownFactor.get()
             micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
 
-            if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+            if self._isLatestVersion():
                 ext = 'pow' if not self.doEPA else 'epa'
             else:
                 ext = 'ctf'
@@ -349,7 +349,7 @@ class ProtGctf(em.ProtCTFMicrographs):
         micFn = mic.getFileName()
         micDir = self._getMicrographDir(mic)
 
-        if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+        if self._isLatestVersion():
             ext = 'pow' if not self.doEPA else 'epa'
         else:
             ext = 'ctf'
@@ -406,7 +406,7 @@ class ProtGctf(em.ProtCTFMicrographs):
     # -------------------------- INFO functions -------------------------------
     def _validate(self):
         errors = []
-        if self.doPhShEst and not gctf.Plugin.isNewVersion:
+        if self.doPhShEst and not gctf.Plugin.isNewVersion():
             errors.append('This version of Gctf (0.50) does not support phase '
                           'shift estimation! Please update to a newer version.')
 
@@ -491,10 +491,11 @@ class ProtGctf(em.ProtCTFMicrographs):
         self._args += "--convsize %d " % self.convsize.get()
         self._args += "--do_Hres_ref %d " % (1 if self.doHighRes else 0)
 
-        if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+        if self._isLatestVersion():
             self._args += "--smooth_resL %d " % self.smoothResL.get()
 
         if not gctf.Plugin.isNewVersion():
+            # version = 0.50
             self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
         else:
             self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
@@ -505,7 +506,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                 self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
                 self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
 
-                if gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']:
+                if self._isLatestVersion():
                     self._args += "--cosearch_refine_ps %d " % (1 if self.coSearchRefine else 0)
                     self._args += "--refine_2d_T %d " % self.refine2DT.get()
 
@@ -540,3 +541,7 @@ class ProtGctf(em.ProtCTFMicrographs):
         ctf.setPsdFile(psdFile)
 
         return ctf
+
+    def _isLatestVersion(self):
+        # specific case for v1.18
+        return gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']
