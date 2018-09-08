@@ -58,6 +58,18 @@ class Plugin(pyworkflow.em.Plugin):
         return environ
 
     @classmethod
+    def defineBinaries(cls, env):
+        env.addPackage('gctf', version='0.50',
+                       tar='Gctf_v0.50.tgz')
+
+        env.addPackage('gctf', version='1.06',
+                       tar='Gctf_v1.06.tgz',
+                       default=True)
+
+        env.addPackage('gctf', version='1.18',
+                       tar='Gctf_v1.18.tgz')
+
+    @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
         if (not GCTF in os.environ or
