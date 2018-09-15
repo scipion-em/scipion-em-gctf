@@ -94,7 +94,7 @@ setup(
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='scipion@cnb.csic.es',  # Optional
+    author_email='sharov.grigory@gmail.com',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #

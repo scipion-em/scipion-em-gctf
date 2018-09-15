@@ -39,7 +39,7 @@ _references = ['Zhang2016']
 class Plugin(pyworkflow.em.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
-    _supportedVersions = ['0.50', '1.06']
+    _supportedVersions = ['0.50', '1.06', '1.18']
 
     @classmethod
     def _defineVariables(cls):
