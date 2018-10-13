@@ -90,11 +90,11 @@ setup(
 
     # This should be your name or the name of the organization which owns the
     # project.
-    author='Grigory Sharov',  # Optional
+    author='Grigory Sharov, J.M. De la Rosa Trevin',  # Optional
 
     # This should be a valid email address corresponding to the author listed
     # above.
-    author_email='sharov.grigory@gmail.com',  # Optional
+    author_email='sharov.grigory@gmail.com, delarosatrevin@scilifelab.se',  # Optional
 
     # Classifiers help users find your project by categorizing it.
     #
