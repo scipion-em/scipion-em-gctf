@@ -39,14 +39,12 @@ from gctf.constants import CCC, MAXRES
 
 
 class ProtGctf(em.ProtCTFMicrographs):
-    """
-    Estimates CTF on a set of micrographs
-    using GPU-accelerated Gctf program.
+    """ Estimates CTF on a set of micrographs using Gctf.
 
     To find more information about Gctf go to:
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
-    _label = 'CTF estimation on GPU'
+    _label = 'ctf estimation'
 
     def __init__(self, **kwargs):
         em.ProtCTFMicrographs.__init__(self, **kwargs)

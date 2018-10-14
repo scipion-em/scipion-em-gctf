@@ -43,13 +43,12 @@ from gctf.constants import *
 
 class ProtGctfRefine(em.ProtParticles):
     """
-    Refines local CTF of a set of particles
-    using GPU-accelerated Gctf program.
+    Refines local CTF of a set of particles using Gctf.
 
     To find more information about Gctf go to:
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
-    _label = 'CTF local refinement'
+    _label = 'ctf refinement'
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
