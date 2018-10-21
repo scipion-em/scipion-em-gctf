@@ -39,9 +39,7 @@ from gctf.constants import CCC, MAXRES
 
 
 class ProtGctf(em.ProtCTFMicrographs):
-    """
-    Estimates CTF on a set of micrographs
-    using GPU-accelerated Gctf program.
+    """ Estimates CTF on a set of micrographs using Gctf.
 
     To find more information about Gctf go to:
     http://www.mrc-lmb.cam.ac.uk/kzhang
@@ -320,16 +318,18 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._params['micDir'] = micDir
             self._params['gctfOut'] = self._getCtfOutPath(micDir)
 
-        except Exception, ex:
-            print >> sys.stderr, "Some error happened: %s" % ex
+        except:
             import traceback
             traceback.print_exc()
 
         try:
             args = self._args % self._params
-            self.runJob(gctf.Plugin.getProgram(), args,  env=self._getEnviron())
+            self.runJob(gctf.Plugin.getProgram(), args,
+                        env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            import traceback
+            traceback.print_exc()
 
         psdFile = self._getPsdPath(micDir)
         ctffitFile = self._getCtfFitOutPath(micDir)
@@ -374,9 +374,13 @@ class ProtGctf(em.ProtCTFMicrographs):
         pwutils.cleanPath(psdFile)
 
         try:
-            self.runJob(gctf.Plugin.getProgram(), self._args % self._params)
+            self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
+                        env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            import traceback
+            traceback.print_exc()
+
         pwutils.moveFile(micFnCtf, psdFile)
         pwutils.moveFile(micFnCtfFit, ctffitFile)
         pwutils.cleanPattern(micFnMrc)

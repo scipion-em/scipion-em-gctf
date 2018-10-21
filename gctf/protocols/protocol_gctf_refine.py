@@ -43,13 +43,13 @@ from gctf.constants import *
 
 class ProtGctfRefine(em.ProtParticles):
     """
-    Refines local CTF of a set of particles
-    using GPU-accelerated Gctf program.
+    Refines local CTF of a set of particles using Gctf.
 
     To find more information about Gctf go to:
     http://www.mrc-lmb.cam.ac.uk/kzhang
     """
-    _label = 'ctf local refinement'
+
+    _label = 'ctf refinement'
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -488,9 +488,11 @@ class ProtGctfRefine(em.ProtParticles):
 
             try:
                 self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
-                            env=self._getEnviron())
+                            env=gctf.Plugin.getEnviron())
             except:
                 print("ERROR: Gctf has failed for micrograph %s" % outMic)
+                import traceback
+                traceback.print_exc()
 
             # move results from tmp to extra folder
             micDir = self._getExtraPath(pwutils.removeBaseExt(micName))

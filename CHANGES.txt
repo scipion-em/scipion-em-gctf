@@ -1,0 +1,2 @@
+1.0.2 - Fix getEnv bug in protocols, do not produce ctf str file
+1.0.0 - First version of the plugin

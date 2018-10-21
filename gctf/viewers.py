@@ -79,7 +79,7 @@ def _getValues(fn, col):
 
 
 class GctfViewer(Viewer):
-    """ Specific way to visualize SetOfCtf after Gctf. """
+    """ Visualization of Gctf results. """
     _environments = [DESKTOP_TKINTER, WEB_DJANGO]
     _targets = [ProtGctf]
 
