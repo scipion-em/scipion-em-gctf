@@ -285,7 +285,6 @@ class ProtGctf(em.ProtCTFMicrographs):
         ctffitFile = self._getCtfFitOutPath(micDir)
         pwutils.moveFile(micFnCtf, psdFile)
         pwutils.moveFile(micFnCtfFit, ctffitFile)
-        pwutils.cleanPath(self.getProject().getPath('micrographs_all_gctf.star'))
 
         # Let's notify that this micrograph has been processed
         # just creating an empty file at the end (after success or failure)
@@ -325,7 +324,6 @@ class ProtGctf(em.ProtCTFMicrographs):
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
         pwutils.moveFile(micFnCtf, psdFile)
         pwutils.moveFile(micFnCtfFit, ctffitFile)
-        pwutils.cleanPath(self.getProject().getPath('micrographs_all_gctf.star'))
         pwutils.cleanPattern(micFnMrc)
 
     def _createCtfModel(self, mic, updateSampling=True):
@@ -454,7 +452,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._args += "--Href_resH %d " % self.HighResH.get()
             self._args += "--Href_bfac %d " % self.HighResBf.get()
 
-        self._args += "--do_validation %d " % (1 if self.doValidate else 0)
+        self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
         self._args += "%(micFn)s "
         self._args += "> %(gctfOut)s"
 

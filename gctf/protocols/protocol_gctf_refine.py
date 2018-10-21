@@ -462,7 +462,7 @@ class ProtGctfRefine(em.ProtParticles):
                         break
 
             # final args
-            self._args += "--do_validation %d " % (1 if self.doValidate else 0)
+            self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
             self._args += "%(micFn)s "
             self._args += "> %(gctfOut)s"
 
@@ -490,7 +490,6 @@ class ProtGctfRefine(em.ProtParticles):
             pwutils.cleanPath(micDirTmp)
 
         pwutils.cleanPath(self.matchingMics.getFileName())
-        pwutils.cleanPath(self.getProject().getPath('micrographs_all_gctf.star'))
 
     def createCtfModelStep(self):
         inputSet = self.inputParticles.get()
