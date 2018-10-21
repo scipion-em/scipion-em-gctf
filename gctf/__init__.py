@@ -72,11 +72,11 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
-        return os.path.join(os.environ[GCTF_HOME], 'bin',
-                            os.path.basename(os.environ[GCTF]))
+        return os.path.join(cls.getHome('bin'), cls.getVar(GCTF))
 
     @classmethod
     def isNewVersion(cls):
         return not  pyworkflow.em.Plugin.getActiveVersion().startswith("0.50")
+
 
 pyworkflow.em.Domain.registerPlugin(__name__)

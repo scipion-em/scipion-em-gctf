@@ -471,6 +471,8 @@ class ProtGctfRefine(em.ProtParticles):
                             env=gctf.Plugin.getEnviron())
             except:
                 print("ERROR: Gctf has failed for micrograph %s" % outMic)
+                import traceback
+                traceback.print_exc()
 
             # move results from tmp to extra folder
             micDir = self._getExtraPath(pwutils.removeBaseExt(micName))

@@ -269,8 +269,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._params['micDir'] = micDir
             self._params['gctfOut'] = self._getCtfOutPath(micDir)
 
-        except Exception, ex:
-            print >> sys.stderr, "Some error happened: %s" % ex
+        except:
             import traceback
             traceback.print_exc()
 
@@ -280,6 +279,8 @@ class ProtGctf(em.ProtCTFMicrographs):
                         env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            import traceback
+            traceback.print_exc()
 
         psdFile = self._getPsdPath(micDir)
         ctffitFile = self._getCtfFitOutPath(micDir)
@@ -322,6 +323,9 @@ class ProtGctf(em.ProtCTFMicrographs):
                         env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            import traceback
+            traceback.print_exc()
+
         pwutils.moveFile(micFnCtf, psdFile)
         pwutils.moveFile(micFnCtfFit, ctffitFile)
         pwutils.cleanPattern(micFnMrc)
