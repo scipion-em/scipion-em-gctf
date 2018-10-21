@@ -218,11 +218,11 @@ class ProtGctf(em.ProtCTFMicrographs):
                       label="Max")
 
         form.addParam('phaseShiftS', params.FloatParam, default=10.0,
-                       condition='doPhShEst',
-                       label="Step",
-                       help='Phase shift search step. Do not worry about '
-                            'the accuracy; this is just the search step, '
-                            'Gctf will refine the phase shift anyway.')
+                      condition='doPhShEst',
+                      label="Step",
+                      help='Phase shift search step. Do not worry about '
+                           'the accuracy; this is just the search step, '
+                           'Gctf will refine the phase shift anyway.')
         form.addParam('phaseShiftT', params.EnumParam, default=CCC,
                       condition='doPhShEst',
                       label='Target',
@@ -276,7 +276,8 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         try:
             args = self._args % self._params
-            self.runJob(gctf.Plugin.getProgram(), args,  env=self._getEnviron())
+            self.runJob(gctf.Plugin.getProgram(), args,
+                        env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
 
@@ -318,7 +319,8 @@ class ProtGctf(em.ProtCTFMicrographs):
         pwutils.cleanPath(psdFile)
 
         try:
-            self.runJob(gctf.Plugin.getProgram(), self._args % self._params)
+            self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
+                        env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
         pwutils.moveFile(micFnCtf, psdFile)

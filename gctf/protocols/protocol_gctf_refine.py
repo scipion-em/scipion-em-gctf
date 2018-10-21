@@ -468,7 +468,7 @@ class ProtGctfRefine(em.ProtParticles):
 
             try:
                 self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
-                            env=self._getEnviron())
+                            env=gctf.Plugin.getEnviron())
             except:
                 print("ERROR: Gctf has failed for micrograph %s" % outMic)
 
