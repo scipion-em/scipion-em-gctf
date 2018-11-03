@@ -39,7 +39,7 @@ _references = ['Zhang2016']
 class Plugin(pyworkflow.em.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
-    _supportedVersions = ['0.50', '1.06', '1.18']
+    _supportedVersions = ['1.06', '1.18']
 
     @classmethod
     def _defineVariables(cls):
@@ -59,9 +59,6 @@ class Plugin(pyworkflow.em.Plugin):
 
     @classmethod
     def defineBinaries(cls, env):
-        env.addPackage('gctf', version='0.50',
-                       tar='Gctf_v0.50.tgz')
-
         env.addPackage('gctf', version='1.06',
                        tar='Gctf_v1.06.tgz',
                        default=True)
@@ -72,12 +69,7 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
-        return os.path.join(cls.getHome('bin'), cls.getVar(GCTF))
-
-    @classmethod
-    def isNewVersion(cls):
-        # exclude the oldest 0.50 version
-        return not cls.getActiveVersion().startswith("0.50")
+        return os.path.join(cls.getHome('bin'), os.path.basename(cls.getVar(GCTF)))
 
 
 pyworkflow.em.Domain.registerPlugin(__name__)

@@ -141,18 +141,17 @@ class ProtGctf(em.ProtCTFMicrographs):
                             'Only for nice output, will NOT be used for CTF '
                             'determination.')
 
-        if gctf.Plugin.isNewVersion():
-            group.addParam('EPAsmp', params.IntParam, default=4,
-                           condition='doEPA',
-                           expertLevel=params.LEVEL_ADVANCED,
-                           label="Over-sampling factor for EPA")
-            group.addParam('doBasicRotave', params.BooleanParam, default=False,
-                           condition='doEPA',
-                           expertLevel=params.LEVEL_ADVANCED,
-                           label="Do rotational average",
-                           help='Do rotational average used for output CTF file. '
-                                'Only for nice output, will NOT be used for CTF '
-                                'determination.')
+        group.addParam('EPAsmp', params.IntParam, default=4,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Over-sampling factor for EPA")
+        group.addParam('doBasicRotave', params.BooleanParam, default=False,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Do rotational average",
+                       help='Do rotational average used for output CTF file. '
+                            'Only for nice output, will NOT be used for CTF '
+                            'determination.')
 
         group.addParam('overlap', params.FloatParam, default=0.5,
                        condition='doEPA',
@@ -410,10 +409,6 @@ class ProtGctf(em.ProtCTFMicrographs):
     # -------------------------- INFO functions -------------------------------
     def _validate(self):
         errors = []
-        if self.doPhShEst and not gctf.Plugin.isNewVersion():
-            errors.append('This version of Gctf (0.50) does not support phase '
-                          'shift estimation! Please update to a newer version.')
-
         nprocs = max(self.numberOfMpi.get(), self.numberOfThreads.get())
 
         if nprocs < len(self.getGpuList()):
@@ -498,21 +493,17 @@ class ProtGctf(em.ProtCTFMicrographs):
         if self._isLatestVersion():
             self._args += "--smooth_resL %d " % self.smoothResL.get()
 
-        if not gctf.Plugin.isNewVersion():
-            # version = 0.50
-            self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
-        else:
-            self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
+        self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
 
-            if self.doPhShEst:
-                self._args += "--phase_shift_L %f " % self.phaseShiftL.get()
-                self._args += "--phase_shift_H %f " % self.phaseShiftH.get()
-                self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
-                self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
+        if self.doPhShEst:
+            self._args += "--phase_shift_L %f " % self.phaseShiftL.get()
+            self._args += "--phase_shift_H %f " % self.phaseShiftH.get()
+            self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
+            self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
 
-                if self._isLatestVersion():
-                    self._args += "--cosearch_refine_ps %d " % (1 if self.coSearchRefine else 0)
-                    self._args += "--refine_2d_T %d " % self.refine2DT.get()
+            if self._isLatestVersion():
+                self._args += "--cosearch_refine_ps %d " % (1 if self.coSearchRefine else 0)
+                self._args += "--refine_2d_T %d " % self.refine2DT.get()
 
         if self.doHighRes:
             self._args += "--Href_resL %d " % self.HighResL.get()
@@ -548,4 +539,4 @@ class ProtGctf(em.ProtCTFMicrographs):
 
     def _isLatestVersion(self):
         # specific case for v1.18
-        return gctf.Plugin.getActiveVersion() not in ['0.50', '1.06']
+        return gctf.Plugin.getActiveVersion() not in ['1.06']

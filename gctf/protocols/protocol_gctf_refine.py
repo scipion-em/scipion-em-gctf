@@ -147,18 +147,17 @@ class ProtGctfRefine(em.ProtParticles):
                             'Only for nice output, will NOT be used for CTF '
                             'determination.')
 
-        if gctf.Plugin.isNewVersion():
-            group.addParam('EPAsmp', params.IntParam, default=4,
-                           condition='doEPA',
-                           expertLevel=params.LEVEL_ADVANCED,
-                           label="Over-sampling factor for EPA")
-            group.addParam('doBasicRotave', params.BooleanParam, default=False,
-                           condition='doEPA',
-                           expertLevel=params.LEVEL_ADVANCED,
-                           label="Do rotational average",
-                           help='Do rotational average used for output CTF file. '
-                                'Only for nice output, will NOT be used for CTF '
-                                'determination.')
+        group.addParam('EPAsmp', params.IntParam, default=4,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Over-sampling factor for EPA")
+        group.addParam('doBasicRotave', params.BooleanParam, default=False,
+                       condition='doEPA',
+                       expertLevel=params.LEVEL_ADVANCED,
+                       label="Do rotational average",
+                       help='Do rotational average used for output CTF file. '
+                            'Only for nice output, will NOT be used for CTF '
+                            'determination.')
 
         group.addParam('overlap', params.FloatParam, default=0.5,
                        condition='doEPA',
@@ -651,17 +650,13 @@ class ProtGctfRefine(em.ProtParticles):
         self._args += "--local_resH %d " % self.locResH.get()
         self._args += "--refine_local_astm %d " % (1 if self.locAstm else 0)
 
-        if not gctf.Plugin.isNewVersion():
-            # version = 0.50
-            self._args += "--do_basic_rotave %d " % (1 if self.doBasicRotave else 0)
-        else:
-            self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
+        self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
 
-            if self.doPhShEst:
-                self._args += "--phase_shift_L %f " % self.phaseShiftL.get()
-                self._args += "--phase_shift_H %f " % self.phaseShiftH.get()
-                self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
-                self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
+        if self.doPhShEst:
+            self._args += "--phase_shift_L %f " % self.phaseShiftL.get()
+            self._args += "--phase_shift_H %f " % self.phaseShiftH.get()
+            self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
+            self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
 
         if self.doHighRes:
             self._args += "--Href_resL %d " % self.HighResL.get()
