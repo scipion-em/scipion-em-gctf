@@ -130,7 +130,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                       help="GPU may have several cores. Set it to zero"
                            " if you do not know what we are talking about."
                            " First core index is 0, second 1 and so on."
-                           " Motioncor2 can use multiple GPUs - in that case"
+                           " You can use multiple GPUs - in that case"
                            " set to i.e. *0 1 2*.")
 
         form.addSection(label='Advanced')
@@ -282,8 +282,8 @@ class ProtGctf(em.ProtCTFMicrographs):
         """ Run Gctf with required parameters """
         doneFile = os.path.join(micDir, 'done.txt')
 
-        if self.isContinued() and os.path.exists(doneFile):
-            return
+        #if self.isContinued() and os.path.exists(doneFile):
+        #    return
 
         try:
             ih = em.ImageHandler()
