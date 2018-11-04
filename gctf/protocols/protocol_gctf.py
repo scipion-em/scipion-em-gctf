@@ -320,7 +320,7 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         for micFn in micFnList:
             micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
-            # Let's clean the temporary mrc micrographs
+            # Let's clean the temporary mrc micrograph
             pwutils.cleanPath(micFnMrc)
 
             # move output from tmp to extra
@@ -336,100 +336,29 @@ class ProtGctf(em.ProtCTFMicrographs):
             pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
             pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
-
-############################################################
-
-    def _estimateCTFOld(self, micFn, micDir, micName):
-        """ Run Gctf with required parameters """
-        #doneFile = os.path.join(micDir, 'done.txt')
-
-        #if self.isContinued() and os.path.exists(doneFile):
-        #    return
-
-        try:
-            ih = em.ImageHandler()
-            # Create micrograph dir
-            pwutils.makePath(micDir)
-            downFactor = self.ctfDownFactor.get()
-            micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
-
-            if self._isLatestVersion():
-                ext = 'pow' if not self.doEPA else 'epa'
-            else:
-                ext = 'ctf'
-
-            micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-            micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
-
-            if downFactor != 1:
-                # Replace extension by 'mrc' cause there are some formats
-                # that cannot be written (such as dm3)
-                ih.scaleFourier(micFn, micFnMrc, downFactor)
-                sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
-                self._params['scannedPixelSize'] = sps
-            else:
-                if ih.existsLocation(micFn):
-                    ih.convert(micFn, micFnMrc, em.DT_FLOAT)
-                else:
-                    print >> sys.stderr, "Missing input micrograph %s" % micFn
-
-            # Update _params dictionary
-            self._params['micFn'] = micFnMrc
-            self._params['micDir'] = micDir
-            self._params['gctfOut'] = self._getCtfOutPath(micDir)
-
-        except:
-            import traceback
-            traceback.print_exc()
-
-        try:
-            args = self._args % self._params
-            self.runJob(gctf.Plugin.getProgram(), args,
-                        env=gctf.Plugin.getEnviron())
-        except:
-            print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
-            import traceback
-            traceback.print_exc()
-
-        psdFile = self._getPsdPath(micDir)
-        ctffitFile = self._getCtfFitOutPath(micDir)
-        pwutils.moveFile(micFnCtf, psdFile)
-        pwutils.moveFile(micFnCtfFit, ctffitFile)
-
-        # Let's notify that this micrograph has been processed
-        # just creating an empty file at the end (after success or failure)
-        #open(doneFile, 'w')
-        # Let's clean the temporary mrc micrographs
-        pwutils.cleanPath(micFnMrc)
-
     def _restimateCTF(self, ctfId):
-        """ Run Gctf with required parameters """
+        ih = em.ImageHandler()
         ctfModel = self.recalculateSet[ctfId]
         mic = ctfModel.getMicrograph()
         micFn = mic.getFileName()
-
-        if self._isLatestVersion():
-            ext = 'pow' if not self.doEPA else 'epa'
-        else:
-            ext = 'ctf'
-
-        micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-        micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
-        micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
-
-        micFnCtfOut = self._getPsdPath(micFn)
-        micFnCtfLogOut = self._getCtfOutPath(micFn)
-        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
-
-        pwutils.cleanPath(micFnCtfOut)
-
         micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
-        em.ImageHandler().convert(micFn, micFnMrc, em.DT_FLOAT)
+
+        # We convert the input micrograph on demand if not in .mrc
+        downFactor = self.ctfDownFactor.get()
+
+        if downFactor != 1:
+            # Replace extension by 'mrc' cause there are some formats
+            # that cannot be written (such as dm3)
+            ih.scaleFourier(micFn, micFnMrc, downFactor)
+            sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
+            self._params['scannedPixelSize'] = sps
+        else:
+            ih.convert(micFn, micFnMrc, em.DT_FLOAT)
 
         # Update _params dictionary
         self._prepareRecalCommand(ctfModel)
-        # Now we can remove PSD file
-        pwutils.cleanPath(micFnCtfOut)
+        print "TEST"
+        print self._params
 
         try:
             args = self._args % self._params
@@ -441,10 +370,26 @@ class ProtGctf(em.ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
+        if self._isLatestVersion():
+            ext = 'pow' if not self.doEPA else 'epa'
+        else:
+            ext = 'ctf'
+
+        # Let's clean the temporary mrc micrograph
+        pwutils.cleanPath(micFnMrc)
+
+        # move output from tmp to extra
+        micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
+        micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
+        micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
+
+        micFnCtfOut = self._getPsdPath(micFn)
+        micFnCtfLogOut = self._getCtfOutPath(micFn)
+        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+
         pwutils.moveFile(micFnCtf, micFnCtfOut)
         pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
         pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
-        pwutils.cleanPath(micFnMrc)
 
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
