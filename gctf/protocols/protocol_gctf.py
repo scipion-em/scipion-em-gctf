@@ -454,7 +454,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             mic.setSamplingRate(newSampling)
 
         micFn = mic.getFileName()
-        out = self._getCtfFitOutPath(micFn)
+        out = self._getCtfOutPath(micFn)
         psdFile = self._getPsdPath(micFn)
 
         ctfModel2 = em.CTFModel()
