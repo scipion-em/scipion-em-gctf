@@ -357,8 +357,6 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         # Update _params dictionary
         self._prepareRecalCommand(ctfModel)
-        print "TEST"
-        print self._params
 
         try:
             args = self._args % self._params
@@ -518,8 +516,6 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._args += "--Href_bfac %d " % self.HighResBf.get()
 
         self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
-        #self._args += "%(micFn)s "
-        #self._args += "> %(gctfOut)s"
 
     def _getPsdPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
