@@ -320,7 +320,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             ext = 'ctf'
 
         for micFn in micFnList:
-            micFnMrc = self._getExtraPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+            micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
             # Let's clean the temporary mrc micrographs
             pwutils.cleanPath(micFnMrc)
 
@@ -329,10 +329,9 @@ class ProtGctf(em.ProtCTFMicrographs):
             micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
             micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
 
-            micFnOut = self._getExtraPath(micFn)
-            micFnCtfOut = self._getPsdPath(micFnOut)
-            micFnCtfLogOut = self._getCtfOutPath(micFnOut)
-            micFnCtfFitOut = self._getCtfFitOutPath(micFnOut)
+            micFnCtfOut = self._getPsdPath(micFn)
+            micFnCtfLogOut = self._getCtfOutPath(micFn)
+            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
 
             pwutils.moveFile(micFnCtf, micFnCtfOut)
             pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
@@ -579,15 +578,15 @@ class ProtGctf(em.ProtCTFMicrographs):
 
     def _getPsdPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(micFnBase, '_ctf.mrc')
+        return os.path.join(self._getExtraPath(micFnBase), '_ctf.mrc')
 
     def _getCtfOutPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(micFnBase, '_ctf.log')
+        return os.path.join(self._getExtraPath(micFnBase), '_ctf.log')
 
     def _getCtfFitOutPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(micFnBase, '_ctf_EPA.log')
+        return os.path.join(self._getExtraPath(micFnBase), '_ctf_EPA.log')
 
     def _parseOutput(self, filename):
         """ Try to find the output estimation parameters
