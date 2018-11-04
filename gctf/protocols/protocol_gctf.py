@@ -25,7 +25,6 @@
 # **************************************************************************
 
 import sys
-import os
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.protocol.params as params
@@ -454,9 +453,9 @@ class ProtGctf(em.ProtCTFMicrographs):
             newSampling = mic.getSamplingRate() * self.ctfDownFactor.get()
             mic.setSamplingRate(newSampling)
 
-        micDir = self._getMicrographDir(mic)
-        out = self._getCtfOutPath(micDir)
-        psdFile = self._getPsdPath(micDir)
+        micFn = mic.getFileName()
+        out = self._getCtfFitOutPath(micFn)
+        psdFile = self._getPsdPath(micFn)
 
         ctfModel2 = em.CTFModel()
         readCtfModel(ctfModel2, out)
@@ -578,15 +577,15 @@ class ProtGctf(em.ProtCTFMicrographs):
 
     def _getPsdPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(self._getExtraPath(micFnBase), '_ctf.mrc')
+        return self._getExtraPath(micFnBase + '_ctf.mrc')
 
     def _getCtfOutPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(self._getExtraPath(micFnBase), '_ctf.log')
+        return self._getExtraPath(micFnBase + '_ctf.log')
 
     def _getCtfFitOutPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
-        return os.path.join(self._getExtraPath(micFnBase), '_ctf_EPA.log')
+        return self._getExtraPath(micFnBase + '_ctf_EPA.log')
 
     def _parseOutput(self, filename):
         """ Try to find the output estimation parameters
