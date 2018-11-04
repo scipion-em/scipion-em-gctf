@@ -278,9 +278,57 @@ class ProtGctf(em.ProtCTFMicrographs):
         form.addParallelSection(threads=1, mpi=1)
 
     # -------------------------- STEPS functions ------------------------------
-    def _estimateCTF(self, micFn, micDir, micName):
+    def _estimateCTF(self, mic, args):
+        self._estimateMicrographList([mic], args)
+
+    def  _estimateMicrographList(self, micList, args):
+        """ Estimate several micrographs at once, probably a bit more efficient."""
+        micFnList = []
+        micsArgs = ''
+
+        for mic in micList:
+            micFn = mic.getFileName()
+            micFnList.append(micFn)
+
+        ih = em.ImageHandler()
+        for micFn in micFnList:
+            # We convert the input micrograph on demand if not in .mrc
+            downFactor = self.ctfDownFactor.get()
+            micFnMrc = self._getExtraPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+
+            if downFactor != 1:
+                # Replace extension by 'mrc' cause there are some formats
+                # that cannot be written (such as dm3)
+                ih.scaleFourier(micFn, micFnMrc, downFactor)
+                sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
+                self._params['scannedPixelSize'] = sps
+            else:
+                ih.convert(micFn, micFnMrc, em.DT_FLOAT)
+
+            micsArgs += ' %s' % micFnMrc
+
+        try:
+            args = self._args % self._params
+            args += micsArgs
+            self.runJob(gctf.Plugin.getProgram(), args,
+                        env=gctf.Plugin.getEnviron())
+        except:
+            #print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            import traceback
+            traceback.print_exc()
+
+        for micFn in micFnList:
+            micFnMrc = self._getExtraPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+            # Let's clean the temporary mrc micrographs
+            pwutils.cleanPath(micFnMrc)
+
+
+
+############################################################
+
+    def _estimateCTFOld(self, micFn, micDir, micName):
         """ Run Gctf with required parameters """
-        doneFile = os.path.join(micDir, 'done.txt')
+        #doneFile = os.path.join(micDir, 'done.txt')
 
         #if self.isContinued() and os.path.exists(doneFile):
         #    return
@@ -337,7 +385,7 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         # Let's notify that this micrograph has been processed
         # just creating an empty file at the end (after success or failure)
-        open(doneFile, 'w')
+        #open(doneFile, 'w')
         # Let's clean the temporary mrc micrographs
         pwutils.cleanPath(micFnMrc)
 
@@ -511,8 +559,8 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._args += "--Href_bfac %d " % self.HighResBf.get()
 
         self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
-        self._args += "%(micFn)s "
-        self._args += "> %(gctfOut)s"
+        #self._args += "%(micFn)s "
+        #self._args += "> %(gctfOut)s"
 
     def _getPsdPath(self, micDir):
         return os.path.join(micDir, 'ctfEstimation.mrc')
