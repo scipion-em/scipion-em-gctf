@@ -407,7 +407,6 @@ class ProtGctf(em.ProtCTFMicrographs):
         ctfModel = self.recalculateSet[ctfId]
         mic = ctfModel.getMicrograph()
         micFn = mic.getFileName()
-        micDir = self._getMicrographDir(mic)
 
         if self._isLatestVersion():
             ext = 'pow' if not self.doEPA else 'epa'
@@ -415,35 +414,37 @@ class ProtGctf(em.ProtCTFMicrographs):
             ext = 'ctf'
 
         micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
+        micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
         micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
 
-        out = self._getCtfOutPath(micDir)
-        psdFile = self._getPsdPath(micDir)
-        ctffitFile = self._getCtfFitOutPath(micDir)
+        micFnCtfOut = self._getPsdPath(micFn)
+        micFnCtfLogOut = self._getCtfOutPath(micFn)
+        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
 
-        pwutils.cleanPath(out)
+        pwutils.cleanPath(micFnCtfOut)
 
         micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
         em.ImageHandler().convert(micFn, micFnMrc, em.DT_FLOAT)
 
         # Update _params dictionary
         self._prepareRecalCommand(ctfModel)
-        self._params['micFn'] = micFnMrc
-        self._params['micDir'] = micDir
-        self._params['gctfOut'] = out
-        pwutils.cleanPath(psdFile)
+        # Now we can remove PSD file
+        pwutils.cleanPath(micFnCtfOut)
 
         try:
-            self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
+            args = self._args % self._params
+            args += ' %s' % micFnMrc
+            self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
             import traceback
             traceback.print_exc()
 
-        pwutils.moveFile(micFnCtf, psdFile)
-        pwutils.moveFile(micFnCtfFit, ctffitFile)
-        pwutils.cleanPattern(micFnMrc)
+        pwutils.moveFile(micFnCtf, micFnCtfOut)
+        pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+        pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+        pwutils.cleanPath(micFnMrc)
 
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
