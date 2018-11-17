@@ -166,7 +166,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                             'suggested 1/5 ~ 1/20 of window size in pixel, '
                             'e.g. 99 for 512 window')
 
-        if self._isLatestVersion():
+        if self._isVersion118():
             group.addParam('smoothResL', params.IntParam, default=1000,
                            expertLevel=params.LEVEL_ADVANCED,
                            condition='doEPA',
@@ -250,7 +250,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                             'The accuracy of CCC method might not be as '
                             'good, but it is more stable in general cases.')
 
-        if self._isLatestVersion():
+        if self._isVersion118():
              form.addParam('coSearchRefine', params.BooleanParam,
                            default=False, condition='doPhShEst',
                            label='Search and refine simultaneously?',
@@ -317,7 +317,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
-        if self._isLatestVersion():
+        if self._isVersion118():
             ext = 'pow' if not self.doEPA else 'epa'
         else:
             ext = 'ctf'
@@ -372,7 +372,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
-        if self._isLatestVersion():
+        if self._isVersion118():
             ext = 'pow' if not self.doEPA else 'epa'
         else:
             ext = 'ctf'
@@ -499,7 +499,7 @@ class ProtGctf(em.ProtCTFMicrographs):
         self._args += "--convsize %d " % self.convsize.get()
         self._args += "--do_Hres_ref %d " % (1 if self.doHighRes else 0)
 
-        if self._isLatestVersion():
+        if self._isVersion118():
             self._args += "--smooth_resL %d " % self.smoothResL.get()
 
         self._args += "--EPA_oversmp %d " % self.EPAsmp.get()
@@ -510,7 +510,7 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._args += "--phase_shift_S %f " % self.phaseShiftS.get()
             self._args += "--phase_shift_T %d " % (1 + self.phaseShiftT.get())
 
-            if self._isLatestVersion():
+            if self._isVersion118():
                 self._args += "--cosearch_refine_ps %d " % (1 if self.coSearchRefine else 0)
                 self._args += "--refine_2d_T %d " % self.refine2DT.get()
 
@@ -547,6 +547,6 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         return ctf
 
-    def _isLatestVersion(self):
+    def _isVersion118(self):
         # specific case for v1.18
-        return gctf.Plugin.getActiveVersion() not in ['1.06']
+        return gctf.Plugin.getActiveVersion() in ['1.18']
