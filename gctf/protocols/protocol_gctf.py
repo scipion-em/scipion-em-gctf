@@ -288,11 +288,15 @@ class ProtGctf(em.ProtCTFMicrographs):
             micFn = mic.getFileName()
             micFnList.append(micFn)
 
+        micPath = self._getTmpPath('mic_%s-%s' % (micList[0].strId(),
+                                                  micList[-1].strId()))
+        pwutils.makePath(micPath)
+
         ih = em.ImageHandler()
         for micFn in micFnList:
             # We convert the input micrograph on demand if not in .mrc
             downFactor = self.ctfDownFactor.get()
-            micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
             if downFactor != 1:
                 # Replace extension by 'mrc' cause there are some formats
@@ -305,7 +309,7 @@ class ProtGctf(em.ProtCTFMicrographs):
 
         try:
             args = self._args % self._params
-            args += ' %s/*.mrc' % self._getTmpPath()
+            args += ' %s/*.mrc' % micPath
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
         except:
@@ -319,14 +323,14 @@ class ProtGctf(em.ProtCTFMicrographs):
             ext = 'ctf'
 
         for micFn in micFnList:
-            micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
             # Let's clean the temporary mrc micrograph
             pwutils.cleanPath(micFnMrc)
 
             # move output from tmp to extra
-            micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-            micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
-            micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
+            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, ext))
+            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
+            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
 
             micFnCtfOut = self._getPsdPath(micFn)
             micFnCtfLogOut = self._getCtfOutPath(micFn)
