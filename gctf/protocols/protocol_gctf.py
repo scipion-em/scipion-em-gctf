@@ -424,9 +424,6 @@ class ProtGctf(em.ProtCTFMicrographs):
             errors.append("Multiple GPUs can not be used by a single process. "
                           "Make sure you specify more processors than GPUs. ")
 
-        if self._getStreamingBatchSize() > 1:
-            errors.append("Batch steps are not implemented yet for Gctf. ")
-
         return errors
 
     def _methods(self):

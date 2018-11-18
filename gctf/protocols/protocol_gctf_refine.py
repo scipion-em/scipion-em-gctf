@@ -24,8 +24,6 @@
 # *
 # **************************************************************************
 
-import os
-
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.em.metadata as md
@@ -53,8 +51,6 @@ class ProtGctfRefine(em.ProtParticles):
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
-        self.allowMpi = False
-        self.allowThreads = False
         self._params = {}
         self.stepsExecutionMode = STEPS_PARALLEL
 
@@ -136,7 +132,7 @@ class ProtGctfRefine(em.ProtParticles):
                        help="GPU may have several cores. Set it to zero"
                             " if you do not know what we are talking about."
                             " First core index is 0, second 1 and so on."
-                            " Motioncor2 can use multiple GPUs - in that case"
+                            " You can use multiple GPUs - in that case"
                             " set to i.e. *0 1 2*.")
 
         form.addSection(label='Advanced')
@@ -260,7 +256,8 @@ class ProtGctfRefine(em.ProtParticles):
                       label='Radius for local refinement (px)',
                       help='Radius for local refinement, no weighting '
                            'if the distance is larger than that')
-        form.addParam('locAveType', params.EnumParam, default=WEIGHT_BOTH,
+        form.addParam('locAveType', params.EnumParam,
+                      default=WEIGHT_BOTH,
                       expertLevel=params.LEVEL_ADVANCED,
                       label='Local average type',
                       choices=['Equal weights', 'Distance', 'Distance and freq'],
@@ -321,14 +318,13 @@ class ProtGctfRefine(em.ProtParticles):
                       label='B-factor error',
                       help='Estimated error of input initial B-factor.')
 
-
-        form.addParallelSection(threads=0, mpi=0)
+        form.addParallelSection(threads=1, mpi=1)
 
     # -------------------------- STEPS functions -------------------------------
     def _insertAllSteps(self):
-        self._insertFunctionStep('convertInputStep')
-        self._insertFunctionStep('refineCtfStep')
-        self._insertFunctionStep('createCtfModelStep')
+        convId = self._insertFunctionStep('convertInputStep')
+        refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=convId)
+        self._insertFunctionStep('createCtfModelStep', prerequisites=refIds)
 
     def convertInputStep(self):
         inputParticles = self.inputParticles.get()
@@ -336,14 +332,14 @@ class ProtGctfRefine(em.ProtParticles):
         self.hasMicName = firstCoord.getMicName() is not None
         inputMics = self._getMicrographs()
         self.alignType = inputParticles.getAlignment()
-        self.downFactor = self.ctfDownFactor.get()
+        downFactor = self.ctfDownFactor.get()
 
         # create a tmp set for matching mics
         self.matchingMics = self._createSetOfMicrographs(suffix='_tmp')
         self.matchingMics.copyInfo(inputMics)
 
-        if self.downFactor != 1.:
-            self.matchingMics.setDownsample(self.downFactor)
+        if downFactor != 1.:
+            self.matchingMics.setDownsample(downFactor)
 
         # create a tmp set for coords
         coords = self._createSetOfCoordinates(inputMics, suffix='_tmp')
@@ -408,25 +404,6 @@ class ProtGctfRefine(em.ProtParticles):
                     insertedMics[mic.getObjId()] = mic
                     self.matchingMics.append(mic)
 
-        ih = em.ImageHandler()
-        # We convert matching micrographs if they are not *.mrc
-        for mic in self.matchingMics:
-            # Create micrograph dir
-            micName = mic.getFileName()
-            micDir = self._getTmpPath(pwutils.removeBaseExt(micName))
-            pwutils.makePath(micDir)
-            outMic = pwutils.join(micDir, pwutils.replaceBaseExt(micName, 'mrc'))
-
-            if self.downFactor != 1.:
-                ih.scaleFourier(micName, outMic, self.downFactor)
-                sps = inputMics.getScannedPixelSize() * self.downFactor
-                self._params['scannedPixelSize'] = sps
-            else:
-                if micName.endswith('.mrc'):
-                    pwutils.createLink(micName, outMic)
-                else:
-                    ih.convert(micName, outMic)
-
         # Write out coordinate files and sets
         writeSetOfCoordinates(self._getTmpPath(), coords, self.matchingMics)
         coords.clear()
@@ -434,27 +411,40 @@ class ProtGctfRefine(em.ProtParticles):
         self.matchingMics.write()
         self.matchingMics.close()
 
-    def refineCtfStep(self):
+    def refineCtfSteps(self):
         self._defineValues()
         self._prepareCommand()
 
+        refineDeps = []
+
         for mic in self.matchingMics:
+            stepId = self._insertFunctionStep('refineCtfStep', mic)
+            refineDeps.append(stepId)
+
+        return refineDeps
+
+    def refineCtfStep(self, mic):
             micName = mic.getFileName()
-            micBase = pwutils.removeBaseExt(micName)
-            micDirTmp = self._getTmpPath(pwutils.removeBaseExt(micName))
-            outMic = pwutils.join(micDirTmp, pwutils.replaceBaseExt(micName, 'mrc'))
-            micFnCtf = pwutils.join(micDirTmp, micBase + '.ctf')
-            micFnOut = self._getCtfOutPath(micDirTmp)
-            micFnCtfFit = pwutils.join(micDirTmp, micBase + '_EPA.log')
-            micFnLocalCtf = pwutils.join(micDirTmp, micBase + '_local.star')
+            micPath = self._getTmpPath(pwutils.removeBaseExt(micName))
+            pwutils.makePath(micPath)
 
-            # Update _params dictionary
-            self._params['micFn'] = outMic
-            self._params['gctfOut'] = micFnOut
+            # We convert the input micrograph on demand if not in .mrc
+            downFactor = self.ctfDownFactor.get()
+            ih = em.ImageHandler()
+            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'mrc'))
 
-            if self.useInputCtf and self.ctfRelations.get():
-                # get input CTFs from a mic
-                ctfs = self.ctfRelations.get()
+            if downFactor != 1:
+                # Replace extension by 'mrc' cause there are some formats
+                # that cannot be written (such as dm3)
+                ih.scaleFourier(micName, micFnMrc, downFactor)
+                sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
+                self._params['scannedPixelSize'] = sps
+            else:
+                ih.convert(micName, micFnMrc, em.DT_FLOAT)
+
+            # Match ctf by micName
+            if self.useInputCtf:
+                ctfs = self._getCtfs()
                 micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
 
                 for ctf in ctfs:
@@ -477,42 +467,41 @@ class ProtGctfRefine(em.ProtParticles):
                         self._args += "--defV_err %f " % self.defVerr.get()
                         self._args += "--defA_err %f " % self.defAerr.get()
                         self._args += "--B_err %f " % self.Berr.get()
-
                         break
 
-            # final args
-            self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
-            self._args += "%(micFn)s "
-            self._args += "> %(gctfOut)s"
-
+            # Run Gctf refine
             try:
-                self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
+                args = self._args % self._params
+                args += ' %s' % micFnMrc
+                self.runJob(gctf.Plugin.getProgram(), args,
                             env=gctf.Plugin.getEnviron())
             except:
-                print("ERROR: Gctf has failed for micrograph %s" % outMic)
+                print("ERROR: Gctf has failed")
                 import traceback
                 traceback.print_exc()
 
-            # move results from tmp to extra folder
-            micDir = self._getExtraPath(pwutils.removeBaseExt(micName))
-            pwutils.makePath(micDir)
-            psdFile = self._getPsdPath(micDir)
-            ctfOutFile = self._getCtfOutPath(micDir)
-            ctffitFile = self._getCtfFitOutPath(micDir)
-            ctflocalFile = self._getCtfLocalPath(micDir, micBase)
+            # Let's clean the temporary mrc micrograph
+            pwutils.cleanPath(micFnMrc)
 
-            pwutils.moveFile(micFnCtf, psdFile)
-            pwutils.moveFile(micFnOut, ctfOutFile)
-            pwutils.moveFile(micFnCtfFit, ctffitFile)
-            pwutils.moveFile(micFnLocalCtf, ctflocalFile)
+            # move output from tmp to extra
+            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'ctf'))
+            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_gctf.log')
+            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_EPA.log')
+            micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_local.star')
 
-            # Let's clean the temporary micrographs
-            pwutils.cleanPath(outMic)
-            pwutils.cleanPath(micDirTmp)
+            micFnCtfOut = self._getPsdPath(micName)
+            micFnCtfLogOut = self._getCtfOutPath(micName)
+            micFnCtfFitOut = self._getCtfFitOutPath(micName)
+            micFnCtfLocalOut = self._getCtfLocalOutPath(micName)
 
-        pwutils.cleanPath(self.matchingMics.getFileName())
+            pwutils.moveFile(micFnCtf, micFnCtfOut)
+            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+            pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
 
     def createCtfModelStep(self):
+        pwutils.cleanPath(self.matchingMics.getFileName())
+
         inputSet = self.inputParticles.get()
         partSet = self._createSetOfParticles()
         partSet.copyInfo(inputSet)
@@ -535,8 +524,7 @@ class ProtGctfRefine(em.ProtParticles):
                 micKey = pwutils.removeBaseExt(key.getFileName())
                 if micBase in micKey:
                     # micName from mic and micName from coord may be different
-                    ctfFn = pwutils.join(self._getExtraPath(micKey),
-                                         micKey + '_local.star')
+                    ctfFn = self._getExtraPath(micKey + '_local.star')
                     if pwutils.exists(ctfFn):
                         mdFn = md.MetaData(ctfFn)
                         for row in md.iterRows(mdFn):
@@ -557,7 +545,7 @@ class ProtGctfRefine(em.ProtParticles):
             errors.append('Gctf version 1.18 does not support local refinement.'
                           ' Please use version 1.06.')
 
-        if self.useInputCtf and not self.ctfRelations.get():
+        if self.useInputCtf and not self._getCtfs:
             errors.append("Please provide input CTFs for refinement.")
 
         return errors
@@ -607,7 +595,7 @@ class ProtGctfRefine(em.ProtParticles):
                         }
 
     def _prepareCommand(self):
-        sampling = self._getMicrographs().getSamplingRate() * self.downFactor
+        sampling = self._getMicrographs().getSamplingRate() * self.ctfDownFactor.get()
         # Convert digital frequencies to spatial frequencies
         self._params['sampling'] = sampling
         self._params['lowRes'] = sampling / self._params['lowRes']
@@ -615,7 +603,6 @@ class ProtGctfRefine(em.ProtParticles):
             self._params['lowRes'] = 50
         self._params['highRes'] = sampling / self._params['highRes']
         self._params['step_focus'] = 500.0
-
         self._argsGctf()
 
     def _argsGctf(self):
@@ -633,7 +620,7 @@ class ProtGctfRefine(em.ProtParticles):
         self._args += "--do_EPA %d " % (1 if self.doEPA else 0)
         self._args += "--boxsize %d " % self._params['windowSize']
         self._args += "--plot_res_ring %d " % (1 if self.plotResRing else 0)
-        self._args += "--gid %d " % self.GPUCore.get()
+        self._args += "--gid %%(GPU)s "  # Use %% to escape when formatting
         self._args += "--bfac %d " % self.bfactor.get()
         self._args += "--B_resH %f " % (2 * self._params['sampling'])
         self._args += "--overlap %f " % self.overlap.get()
@@ -663,17 +650,26 @@ class ProtGctfRefine(em.ProtParticles):
             self._args += "--Href_resH %d " % self.HighResH.get()
             self._args += "--Href_bfac %d " % self.HighResBf.get()
 
-    def _getPsdPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation.mrc')
+        self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
 
-    def _getCtfOutPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation.txt')
+    def _getPsdPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf.mrc')
 
-    def _getCtfFitOutPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation_EPA.txt')
+    def _getCtfOutPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf.log')
 
-    def _getCtfLocalPath(self, micDir, micBase):
-        return os.path.join(micDir, micBase + '_local.star')
+    def _getCtfFitOutPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf_EPA.log')
+
+    def _getCtfLocalOutPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_local.star')
 
     def _getMicrographs(self):
             return self.inputMicrographs.get()
+
+    def _getCtfs(self):
+        return self.ctfRelations.get() if self.ctfRelations.hasValue() else None
