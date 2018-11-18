@@ -442,7 +442,7 @@ class ProtGctfRefine(em.ProtParticles):
             else:
                 ih.convert(micName, micFnMrc, em.DT_FLOAT)
 
-            # Match ctf by micName
+            # Refine input CTFs, match ctf by micName
             if self.useInputCtf:
                 ctfs = self._getCtfs()
                 micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
@@ -524,7 +524,7 @@ class ProtGctfRefine(em.ProtParticles):
                 micKey = pwutils.removeBaseExt(key.getFileName())
                 if micBase in micKey:
                     # micName from mic and micName from coord may be different
-                    ctfFn = self._getExtraPath(micKey + '_local.star')
+                    ctfFn = self._getCtfLocalOutPath(micKey)
                     if pwutils.exists(ctfFn):
                         mdFn = md.MetaData(ctfFn)
                         for row in md.iterRows(mdFn):
