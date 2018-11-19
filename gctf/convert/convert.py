@@ -132,7 +132,7 @@ _rlnCoordinateY #2
         micBase = pwutils.removeBaseExt(mic.getFileName())
         posDict[mic.getObjId()] = pwutils.join(coordDir, micBase,
                                                micBase + '_coords.star')
-
+        pwutils.makePath(pwutils.join(coordDir, micBase))
     f = None
     lastMicId = None
 

@@ -418,86 +418,85 @@ class ProtGctfRefine(em.ProtParticles):
         refineDeps = []
 
         for mic in self.matchingMics:
-            stepId = self._insertFunctionStep('refineCtfStep', mic)
+            micName = mic.getFileName()
+            stepId = self._insertFunctionStep('refineCtfStep', micName)
             refineDeps.append(stepId)
 
         return refineDeps
 
-    def refineCtfStep(self, mic):
-            micName = mic.getFileName()
-            micPath = self._getTmpPath(pwutils.removeBaseExt(micName))
-            pwutils.makePath(micPath)
+    def refineCtfStep(self, micName):
+        micPath = self._getTmpPath(pwutils.removeBaseExt(micName))
+        # We convert the input micrograph on demand if not in .mrc
 
-            # We convert the input micrograph on demand if not in .mrc
-            downFactor = self.ctfDownFactor.get()
-            ih = em.ImageHandler()
-            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'mrc'))
+        downFactor = self.ctfDownFactor.get()
+        ih = em.ImageHandler()
+        micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'mrc'))
 
-            if downFactor != 1:
-                # Replace extension by 'mrc' cause there are some formats
-                # that cannot be written (such as dm3)
-                ih.scaleFourier(micName, micFnMrc, downFactor)
-                sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
-                self._params['scannedPixelSize'] = sps
-            else:
-                ih.convert(micName, micFnMrc, em.DT_FLOAT)
+        if downFactor != 1:
+            # Replace extension by 'mrc' cause there are some formats
+            # that cannot be written (such as dm3)
+            ih.scaleFourier(micName, micFnMrc, downFactor)
+            sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
+            self._params['scannedPixelSize'] = sps
+        else:
+            ih.convert(micName, micFnMrc, em.DT_FLOAT)
 
-            # Refine input CTFs, match ctf by micName
-            if self.useInputCtf:
-                ctfs = self._getCtfs()
-                micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
+        # Refine input CTFs, match ctf by micName
+        if self.useInputCtf:
+            ctfs = self._getCtfs()
+            micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
 
-                for ctf in ctfs:
-                    ctfMicName = ctf.getMicrograph().getMicName()
-                    ctfMicId = ctf.getMicrograph().getObjId()
-                    if micKey == ctfMicName or micKey == ctfMicId:
-                        # add CTF refine options
-                        self._params.update({'refine_input_ctf': 1,
-                                             'defU_init': ctf.getDefocusU(),
-                                             'defV_init': ctf.getDefocusV(),
-                                             'defA_init': ctf.getDefocusAngle(),
-                                             'B_init': self.bfactor.get()
-                                             })
-                        self._args += "--refine_input_ctf %d " % self._params['refine_input_ctf']
-                        self._args += "--defU_init %f " % self._params['defU_init']
-                        self._args += "--defV_init %f " % self._params['defV_init']
-                        self._args += "--defA_init %f " % self._params['defA_init']
-                        self._args += "--B_init %f " % self._params['B_init']
-                        self._args += "--defU_err %f " % self.defUerr.get()
-                        self._args += "--defV_err %f " % self.defVerr.get()
-                        self._args += "--defA_err %f " % self.defAerr.get()
-                        self._args += "--B_err %f " % self.Berr.get()
-                        break
+            for ctf in ctfs:
+                ctfMicName = ctf.getMicrograph().getMicName()
+                ctfMicId = ctf.getMicrograph().getObjId()
+                if micKey == ctfMicName or micKey == ctfMicId:
+                    # add CTF refine options
+                    self._params.update({'refine_input_ctf': 1,
+                                         'defU_init': ctf.getDefocusU(),
+                                         'defV_init': ctf.getDefocusV(),
+                                         'defA_init': ctf.getDefocusAngle(),
+                                         'B_init': self.bfactor.get()
+                                         })
+                    self._args += "--refine_input_ctf %d " % self._params['refine_input_ctf']
+                    self._args += "--defU_init %f " % self._params['defU_init']
+                    self._args += "--defV_init %f " % self._params['defV_init']
+                    self._args += "--defA_init %f " % self._params['defA_init']
+                    self._args += "--B_init %f " % self._params['B_init']
+                    self._args += "--defU_err %f " % self.defUerr.get()
+                    self._args += "--defV_err %f " % self.defVerr.get()
+                    self._args += "--defA_err %f " % self.defAerr.get()
+                    self._args += "--B_err %f " % self.Berr.get()
+                    break
 
-            # Run Gctf refine
-            try:
-                args = self._args % self._params
-                args += ' %s' % micFnMrc
-                self.runJob(gctf.Plugin.getProgram(), args,
-                            env=gctf.Plugin.getEnviron())
-            except:
-                print("ERROR: Gctf has failed")
-                import traceback
-                traceback.print_exc()
+        # Run Gctf refine
+        try:
+            args = self._args % self._params
+            args += ' %s' % micFnMrc
+            self.runJob(gctf.Plugin.getProgram(), args,
+                        env=gctf.Plugin.getEnviron())
+        except:
+            print("ERROR: Gctf has failed")
+            import traceback
+            traceback.print_exc()
 
-            # Let's clean the temporary mrc micrograph
-            pwutils.cleanPath(micFnMrc)
+        # Let's clean the temporary mrc micrograph
+        pwutils.cleanPath(micFnMrc)
 
-            # move output from tmp to extra
-            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'ctf'))
-            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_gctf.log')
-            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_EPA.log')
-            micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_local.star')
+        # move output from tmp to extra
+        micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'ctf'))
+        micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_gctf.log')
+        micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_EPA.log')
+        micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_local.star')
 
-            micFnCtfOut = self._getPsdPath(micName)
-            micFnCtfLogOut = self._getCtfOutPath(micName)
-            micFnCtfFitOut = self._getCtfFitOutPath(micName)
-            micFnCtfLocalOut = self._getCtfLocalOutPath(micName)
+        micFnCtfOut = self._getPsdPath(micName)
+        micFnCtfLogOut = self._getCtfOutPath(micName)
+        micFnCtfFitOut = self._getCtfFitOutPath(micName)
+        micFnCtfLocalOut = self._getCtfLocalOutPath(micName)
 
-            pwutils.moveFile(micFnCtf, micFnCtfOut)
-            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
-            pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
+        pwutils.moveFile(micFnCtf, micFnCtfOut)
+        pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+        pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+        pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
 
     def createCtfModelStep(self):
         pwutils.cleanPath(self.matchingMics.getFileName())
