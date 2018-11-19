@@ -50,11 +50,9 @@ class Plugin(pyworkflow.em.Plugin):
     def getEnviron(cls):
         """ Return the environ settings to run Gctf program. """
         environ = pwutils.Environ(os.environ)
-
         # Take Scipion CUDA library path
         cudaLib = environ.getFirst((GCTF_CUDA_LIB, CUDA_LIB))
         environ.addLibrary(cudaLib)
-
         return environ
 
     @classmethod
@@ -72,11 +70,12 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
-        return os.path.join(cls.getHome('bin'), cls.getVar(GCTF))
+        return os.path.join(cls.getHome('bin'),
+                            os.path.basename(cls.getVar(GCTF)))
 
     @classmethod
     def isNewVersion(cls):
-        return not  pyworkflow.em.Plugin.getActiveVersion().startswith("0.50")
+        return not cls.getActiveVersion().startswith("0.50")
 
 
 pyworkflow.em.Domain.registerPlugin(__name__)
