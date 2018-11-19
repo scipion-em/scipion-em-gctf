@@ -323,8 +323,9 @@ class ProtGctfRefine(em.ProtParticles):
     # -------------------------- STEPS functions -------------------------------
     def _insertAllSteps(self):
         convId = self._insertFunctionStep('convertInputStep')
-        refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
-        self._insertFunctionStep('createCtfModelStep', prerequisites=[refIds])
+        #refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
+        self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
+        #self._insertFunctionStep('createCtfModelStep', prerequisites=refIds) # why this does not work???
 
     def convertInputStep(self):
         inputParticles = self.inputParticles.get()
@@ -423,7 +424,7 @@ class ProtGctfRefine(em.ProtParticles):
             stepId = self._insertFunctionStep('refineCtfStep', micFn, micKey)
             refineDeps.append(stepId)
 
-        return refineDeps
+        self._insertFunctionStep('createCtfModelStep', prerequisites=refineDeps)
 
     def refineCtfStep(self, micFn, micKey):
         micPath = self._getTmpPath(pwutils.removeBaseExt(micFn))
@@ -443,7 +444,7 @@ class ProtGctfRefine(em.ProtParticles):
             ih.convert(micFn, micFnMrc, em.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
-        if self.useInputCtf:
+        if self.useInputCtf and self.ctfRelations.hasValue():
             ctfs = self._getCtfs()
 
             for ctf in ctfs:
