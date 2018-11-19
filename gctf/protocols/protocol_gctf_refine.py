@@ -418,33 +418,33 @@ class ProtGctfRefine(em.ProtParticles):
         refineDeps = []
 
         for mic in self.matchingMics:
-            micName = mic.getFileName()
-            stepId = self._insertFunctionStep('refineCtfStep', micName)
+            micFn = mic.getFileName()
+            micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
+            stepId = self._insertFunctionStep('refineCtfStep', micFn, micKey)
             refineDeps.append(stepId)
 
         return refineDeps
 
-    def refineCtfStep(self, micName):
-        micPath = self._getTmpPath(pwutils.removeBaseExt(micName))
+    def refineCtfStep(self, micFn, micKey):
+        micPath = self._getTmpPath(pwutils.removeBaseExt(micFn))
         # We convert the input micrograph on demand if not in .mrc
 
         downFactor = self.ctfDownFactor.get()
         ih = em.ImageHandler()
-        micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'mrc'))
+        micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
         if downFactor != 1:
             # Replace extension by 'mrc' cause there are some formats
             # that cannot be written (such as dm3)
-            ih.scaleFourier(micName, micFnMrc, downFactor)
+            ih.scaleFourier(micFn, micFnMrc, downFactor)
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micName, micFnMrc, em.DT_FLOAT)
+            ih.convert(micFn, micFnMrc, em.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         if self.useInputCtf:
             ctfs = self._getCtfs()
-            micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
 
             for ctf in ctfs:
                 ctfMicName = ctf.getMicrograph().getMicName()
@@ -483,15 +483,15 @@ class ProtGctfRefine(em.ProtParticles):
         pwutils.cleanPath(micFnMrc)
 
         # move output from tmp to extra
-        micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micName, 'ctf'))
-        micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_gctf.log')
-        micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_EPA.log')
-        micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micName) + '_local.star')
+        micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
+        micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
+        micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
+        micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
 
-        micFnCtfOut = self._getPsdPath(micName)
-        micFnCtfLogOut = self._getCtfOutPath(micName)
-        micFnCtfFitOut = self._getCtfFitOutPath(micName)
-        micFnCtfLocalOut = self._getCtfLocalOutPath(micName)
+        micFnCtfOut = self._getPsdPath(micFn)
+        micFnCtfLogOut = self._getCtfOutPath(micFn)
+        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+        micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
 
         pwutils.moveFile(micFnCtf, micFnCtfOut)
         pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
