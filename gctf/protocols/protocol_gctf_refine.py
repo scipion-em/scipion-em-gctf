@@ -323,8 +323,8 @@ class ProtGctfRefine(em.ProtParticles):
     # -------------------------- STEPS functions -------------------------------
     def _insertAllSteps(self):
         convId = self._insertFunctionStep('convertInputStep')
-        refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=convId)
-        self._insertFunctionStep('createCtfModelStep', prerequisites=refIds)
+        refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
+        self._insertFunctionStep('createCtfModelStep', prerequisites=[refIds])
 
     def convertInputStep(self):
         inputParticles = self.inputParticles.get()
