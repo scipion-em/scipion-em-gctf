@@ -36,7 +36,7 @@ from collections import OrderedDict
 
 from pyworkflow.object import ObjectWrap
 from pyworkflow.em.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
-from pyworkflow.em.transformations import translation_from_matrix
+from pyworkflow.em.convert.transformations import  translation_from_matrix
 import pyworkflow.em.metadata as md
 import pyworkflow.utils as pwutils
 
