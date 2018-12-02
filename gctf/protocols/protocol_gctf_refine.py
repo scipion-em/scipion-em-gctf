@@ -24,13 +24,15 @@
 # *
 # **************************************************************************
 
+from collections import OrderedDict
+
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.em.metadata as md
 import pyworkflow.protocol.params as params
 from pyworkflow.em.constants import RELATION_CTF
 from pyworkflow.em.protocol import EMProtocol
-from pyworkflow.em.data import Coordinate
+from pyworkflow.em.data import Coordinate, SetOfCoordinates
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
 import gctf
@@ -321,110 +323,86 @@ class ProtGctfRefine(em.ProtParticles):
         form.addParallelSection(threads=1, mpi=1)
 
     # -------------------------- STEPS functions -------------------------------
-    def _insertAllSteps(self):
-        convId = self._insertFunctionStep('convertInputStep')
-        #refIds = self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
-        self._insertFunctionStep('refineCtfSteps', prerequisites=[convId])
-        #self._insertFunctionStep('createCtfModelStep', prerequisites=refIds) # why this does not work???
-
-    def convertInputStep(self):
+    def _createMicDict(self):
+        """ Create a dictionary with all micrographs that
+         are both in the input micrographs set and there
+         are particles belonging to it.
+         micName will be the key to that dict.
+         """
         inputParticles = self.inputParticles.get()
         firstCoord = inputParticles.getFirstItem().getCoordinate()
         self.hasMicName = firstCoord.getMicName() is not None
-        inputMics = self._getMicrographs()
-        self.alignType = inputParticles.getAlignment()
-        downFactor = self.ctfDownFactor.get()
-
-        # create a tmp set for matching mics
-        self.matchingMics = self._createSetOfMicrographs(suffix='_tmp')
-        self.matchingMics.copyInfo(inputMics)
-
-        if downFactor != 1.:
-            self.matchingMics.setDownsample(downFactor)
-
-        # create a tmp set for coords
-        coords = self._createSetOfCoordinates(inputMics, suffix='_tmp')
-        newCoord = Coordinate()
-        self.scale = inputParticles.getSamplingRate() / inputMics.getSamplingRate()
-        if self.scale != 1.0:
-            print "Scaling coordinates by a factor *%0.2f*" % self.scale
-
-        # Create the micrograph dicts
-        micDict = {}  # dict with micName or micId
-        micBaseDict = {}  # dict with micName (just basename)
-        micKey2 = None
-        insertedMics = {}
-
-        for mic in inputMics:
-            if self.hasMicName:
-                micKey = mic.getMicName()
-                micKey2 = pwutils.removeBaseExt(micKey)
-            else:
-                micKey = mic.getObjId()
-            if micKey in micDict:
-                print ">>> ERROR: micrograph key %s is duplicated!" % micKey
-                print "           Used in micrographs:"
-                print "           - %s" % micDict[micKey].getLocation()
-                print "           - %s" % mic.getLocation()
-                raise Exception("Micrograph key %s is duplicated!" % micKey)
-            micDict[micKey] = mic.clone()
-            if self.hasMicName:
-                micBaseDict[micKey2] = mic.clone()
-
+        inputMicDict = {mic.getMicName(): mic.clone()
+                        for mic in self._getMicrographs()}
+        # Check now which if these mics have particles belonging
+        self.micDict = OrderedDict()
         # match the mic from coord with micDict
-        for particle in inputParticles:
-            coord = particle.getCoordinate() or None
-            if coord is None:
-                print "Skipping particle, coordinates not found"
-                continue
+        lastMicId = None
+        # TODO: If this loop is too expensive for very large input datasets,
+        # we could consider using the aggregate functions in the mapper
+        for particle in inputParticles.iterItems('_micId'):
+            micId = particle.getMicId()
+            if micId != lastMicId:  # Do no repeat check when this is the same mic
+                micName = particle.getCoordinate().getMicName()
+                if micName in inputMicDict:
+                    self.micDict[micName] = inputMicDict[micName]
+                lastMicId = micId
 
-            if self.hasMicName:
-                micKey = coord.getMicName()
-                micKey2 = pwutils.removeBaseExt(micKey)
-            else:
-                micKey = coord.getMicId()
-            # find the mapping by micName (with or without ext) or micId
-            mic = micDict.get(micKey, None) or micBaseDict.get(micKey2, None)
-
-            if mic is None:
-                print "Skipping particle, key %s not found" % micKey
-            else:
-                newCoord.copyObjId(particle)
-                x, y = coord.getPosition()
-                if self.applyShifts:
-                    shifts = getShifts(particle.getTransform(), self.alignType)
-                    xCoor, yCoor = x - int(shifts[0]), y - int(shifts[1])
-                    newCoord.setPosition(xCoor * self.scale, yCoor * self.scale)
-                else:
-                    newCoord.setPosition(x * self.scale, y * self.scale)
-
-                newCoord.setMicrograph(mic)
-                coords.append(newCoord)
-
-                if mic.getObjId() not in insertedMics:
-                    insertedMics[mic.getObjId()] = mic
-                    self.matchingMics.append(mic)
-
-        # Write out coordinate files and sets
-        writeSetOfCoordinates(self._getTmpPath(), coords, self.matchingMics)
-        coords.clear()
-        pwutils.cleanPath(coords.getFileName())
-        self.matchingMics.write()
-        self.matchingMics.close()
-
-    def refineCtfSteps(self):
+    def _insertAllSteps(self):
+        self._createMicDict()
         self._defineValues()
         self._prepareCommand()
 
+        convIdDeps = [self._insertFunctionStep('convertInputStep')]
         refineDeps = []
 
-        for mic in self.matchingMics:
-            micFn = mic.getFileName()
-            micKey = mic.getMicName() if self.hasMicName else mic.getObjId()
-            stepId = self._insertFunctionStep('refineCtfStep', micFn, micKey)
+        for micName, mic in self.micDict.iteritems():
+            stepId = self._insertFunctionStep('refineCtfStep', mic.getFileName(), micName,
+                                              prerequisites=convIdDeps)
             refineDeps.append(stepId)
 
-        self._insertFunctionStep('createCtfModelStep', prerequisites=refineDeps)
+        self._insertFunctionStep('createOutputStep', prerequisites=refineDeps)
+
+    def convertInputStep(self):
+        inputParts = self.inputParticles.get()
+        alignType = inputParts.getAlignment()
+        inputMics = self._getMicrographs()
+
+        lastMicId = None
+        coords = SetOfCoordinates(filename=":memory:")
+        newCoord = Coordinate()
+
+        scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
+        if abs(scale - 1.0 > 0.00001):
+            print "Scaling coordinates by a factor *%0.2f*" % scale
+            setPosFunc = lambda c, x, y: c.setPosition(x * scale, y * scale)
+        else:
+            setPosFunc = lambda c, x, y: c.setPosition(x, y)
+
+        for particle in inputParts.iterItems('_micId'):
+            coord = particle.getCoordinate()
+            micId = particle.getMicId()
+            micName = coord.getMicName()
+
+            if micId != lastMicId:  # Do no repeat check when this is the same mic
+                mic = self.micDict.get(micName, None)
+                if mic is None:
+                    print("Skipping all particles from micrograph, "
+                          "key %s not found" % micName)
+                lastMicId = micId
+
+            if mic is not None:
+                newCoord.copyObjId(particle)
+                x, y = coord.getPosition()
+                if self.applyShifts:
+                    shifts = getShifts(particle.getTransform(), alignType)
+                    x, y = x - int(shifts[0]), y - int(shifts[1])
+                setPosFunc(newCoord, x, y)
+                newCoord.setMicrograph(mic)
+                coords.append(newCoord)
+
+        # Write out coordinate files and sets
+        writeSetOfCoordinates(self._getTmpPath(), coords, inputMics)
 
     def refineCtfStep(self, micFn, micKey):
         micPath = self._getTmpPath(pwutils.removeBaseExt(micFn))
@@ -499,20 +477,20 @@ class ProtGctfRefine(em.ProtParticles):
         pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
         pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
 
-    def createCtfModelStep(self):
+    def createOutputStep(self):
+        return
         pwutils.cleanPath(self.matchingMics.getFileName())
 
-        inputSet = self.inputParticles.get()
+        inputParts = self.inputParticles.get()
+        alignType = inputParticles.getAlignment()
         partSet = self._createSetOfParticles()
-        partSet.copyInfo(inputSet)
+        partSet.copyInfo(inputParts)
 
-        for particle in inputSet:
+        for particle in inputParts:
             coord = particle.getCoordinate()
-            if coord is None:
-                continue
             x, y = coord.getPosition()
             if self.applyShifts:
-                shifts = getShifts(particle.getTransform(), self.alignType)
+                shifts = getShifts(particle.getTransform(), alignType)
                 xCoor, yCoor = x - int(shifts[0]), y - int(shifts[1])
                 xNew, yNew = (xCoor * self.scale, yCoor * self.scale)
             else:
@@ -536,7 +514,7 @@ class ProtGctfRefine(em.ProtParticles):
                                 partSet.append(newPart)
 
         self._defineOutputs(outputParticles=partSet)
-        self._defineTransformRelation(inputSet, partSet)
+        self._defineTransformRelation(inputParts, partSet)
 
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
