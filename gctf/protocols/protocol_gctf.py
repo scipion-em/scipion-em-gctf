@@ -277,15 +277,17 @@ class ProtGctf(em.ProtCTFMicrographs):
             args = self._args % self._params
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
+
+            # Move output files to keep them
+            psdFile = self._getPsdPath(micDir)
+            ctffitFile = self._getCtfFitOutPath(micDir)
+            pwutils.moveFile(micFnCtf, psdFile)
+            pwutils.moveFile(micFnCtfFit, ctffitFile)
+
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
             import traceback
             traceback.print_exc()
-
-        psdFile = self._getPsdPath(micDir)
-        ctffitFile = self._getCtfFitOutPath(micDir)
-        pwutils.moveFile(micFnCtf, psdFile)
-        pwutils.moveFile(micFnCtfFit, ctffitFile)
 
         # Let's notify that this micrograph has been processed
         # just creating an empty file at the end (after success or failure)
