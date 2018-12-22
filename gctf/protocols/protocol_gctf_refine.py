@@ -633,7 +633,7 @@ class ProtGctfRefine(em.ProtParticles):
         self._args += "--do_EPA %d " % (1 if self.doEPA else 0)
         self._args += "--boxsize %d " % self._params['windowSize']
         self._args += "--plot_res_ring %d " % (1 if self.plotResRing else 0)
-        self._args += "--gid %d " % self.GPUCore.get()
+        self._args += "--gid %%(GPU)s "  # Use %% to escape when formatting
         self._args += "--bfac %d " % self.bfactor.get()
         self._args += "--B_resH %f " % (2 * self._params['sampling'])
         self._args += "--overlap %f " % self.overlap.get()
