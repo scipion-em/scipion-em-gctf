@@ -24,7 +24,8 @@
 # *
 # **************************************************************************
 
-import sys
+import os
+
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.protocol.params as params
@@ -34,7 +35,6 @@ from pyworkflow.protocol import STEPS_PARALLEL
 import gctf
 from gctf.convert import readCtfModel, parseGctfOutput
 from gctf.constants import CCC, MAXRES
-
 
 
 class ProtGctf(em.ProtCTFMicrographs):
@@ -278,22 +278,27 @@ class ProtGctf(em.ProtCTFMicrographs):
 
     # -------------------------- STEPS functions ------------------------------
     def _estimateCTF(self, mic, *args):
-        self._estimateMicrographList([mic], args)
+        self._estimateCtfList([mic], *args)
 
-    def _estimateMicrographList(self, micList, *args):
-        """ Estimate several micrographs at once, probably a bit more efficient."""
-        micFnList = []
+    def _getExt(self):
+        if self._isVersion118():
+            ext = '.pow' if not self.doEPA else '.epa'
+        else:
+            ext = '.ctf'
+        return ext
+
+    def _estimateCtfList(self, micList, *args):
+        """ Estimate several micrographs at once, probably a bit more
+        efficient. """
+        micPath = self._getTmpPath('mic_%04d' % micList[0].getObjId())
+        if len(micList) > 1:
+            micPath += ('-%04d' % micList[-1].getObjId())
+
+        pwutils.makePath(micPath)
+        ih = em.ImageHandler()
 
         for mic in micList:
             micFn = mic.getFileName()
-            micFnList.append(micFn)
-
-        micPath = self._getTmpPath('mic_%s-%s' % (micList[0].strId(),
-                                                  micList[-1].strId()))
-        pwutils.makePath(micPath)
-
-        ih = em.ImageHandler()
-        for micFn in micFnList:
             # We convert the input micrograph on demand if not in .mrc
             downFactor = self.ctfDownFactor.get()
             micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
@@ -317,20 +322,20 @@ class ProtGctf(em.ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
-        if self._isVersion118():
-            ext = 'pow' if not self.doEPA else 'epa'
-        else:
-            ext = 'ctf'
+        def _getFile(micBase, suffix):
+            return os.path.join(micPath, micBase + suffix)
 
-        for micFn in micFnList:
-            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+        for mic in micList:
+            micFn = mic.getFileName()
+            micBase = pwutils.removeBaseExt(micFn)
+            micFnMrc = _getFile(micBase, '.mrc')
             # Let's clean the temporary mrc micrograph
             pwutils.cleanPath(micFnMrc)
 
             # move output from tmp to extra
-            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, ext))
-            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
-            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
+            micFnCtf = _getFile(micBase, self._getExt())
+            micFnCtfLog = _getFile(micBase, '_gctf.log')
+            micFnCtfFit = _getFile(micBase, '_EPA.log')
 
             micFnCtfOut = self._getPsdPath(micFn)
             micFnCtfLogOut = self._getCtfOutPath(micFn)
@@ -345,7 +350,8 @@ class ProtGctf(em.ProtCTFMicrographs):
         ctfModel = self.recalculateSet[ctfId]
         mic = ctfModel.getMicrograph()
         micFn = mic.getFileName()
-        micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
+        micBase = pwutils.removeBaseExt(micFn)
+        micFnMrc = self._getTmpPath(micBase + '.mrc')
 
         # We convert the input micrograph on demand if not in .mrc
         downFactor = self.ctfDownFactor.get()
@@ -372,18 +378,14 @@ class ProtGctf(em.ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
-        if self._isVersion118():
-            ext = 'pow' if not self.doEPA else 'epa'
-        else:
-            ext = 'ctf'
-
         # Let's clean the temporary mrc micrograph
         pwutils.cleanPath(micFnMrc)
 
         # move output from tmp to extra
-        micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-        micFnCtfLog = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_gctf.log')
-        micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
+
+        micFnCtf = self._getTmpPath(micBase + self._getExt())
+        micFnCtfLog = self._getTmpPath(micBase + '_gctf.log')
+        micFnCtfFit = self._getTmpPath(micBase + '_EPA.log')
 
         micFnCtfOut = self._getPsdPath(micFn)
         micFnCtfLogOut = self._getCtfOutPath(micFn)
