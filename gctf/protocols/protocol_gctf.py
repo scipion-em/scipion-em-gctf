@@ -24,8 +24,8 @@
 # *
 # **************************************************************************
 
-import sys
 import os
+
 import pyworkflow.utils as pwutils
 import pyworkflow.em as em
 import pyworkflow.protocol.params as params
@@ -35,7 +35,6 @@ from pyworkflow.protocol import STEPS_PARALLEL
 import gctf
 from gctf.convert import readCtfModel, parseGctfOutput
 from gctf.constants import CCC, MAXRES
-
 
 
 class ProtGctf(em.ProtCTFMicrographs):
@@ -130,7 +129,7 @@ class ProtGctf(em.ProtCTFMicrographs):
                       help="GPU may have several cores. Set it to zero"
                            " if you do not know what we are talking about."
                            " First core index is 0, second 1 and so on."
-                           " Motioncor2 can use multiple GPUs - in that case"
+                           " You can use multiple GPUs - in that case"
                            " set to i.e. *0 1 2*.")
 
         form.addSection(label='Advanced')
@@ -278,27 +277,31 @@ class ProtGctf(em.ProtCTFMicrographs):
         form.addParallelSection(threads=1, mpi=1)
 
     # -------------------------- STEPS functions ------------------------------
-    def _estimateCTF(self, micFn, micDir, micName):
-        """ Run Gctf with required parameters """
-        doneFile = os.path.join(micDir, 'done.txt')
+    def _estimateCTF(self, mic, *args):
+        self._estimateCtfList([mic], *args)
 
-        if self.isContinued() and os.path.exists(doneFile):
-            return
+    def _getExt(self):
+        if self._isVersion118():
+            ext = '.pow' if not self.doEPA else '.epa'
+        else:
+            ext = '.ctf'
+        return ext
 
-        try:
-            ih = em.ImageHandler()
-            # Create micrograph dir
-            pwutils.makePath(micDir)
+    def _estimateCtfList(self, micList, *args):
+        """ Estimate several micrographs at once, probably a bit more
+        efficient. """
+        micPath = self._getMicrographDir(micList[0])
+        if len(micList) > 1:
+            micPath += ('-%04d' % micList[-1].getObjId())
+
+        pwutils.makePath(micPath)
+        ih = em.ImageHandler()
+
+        for mic in micList:
+            micFn = mic.getFileName()
+            # We convert the input micrograph on demand if not in .mrc
             downFactor = self.ctfDownFactor.get()
-            micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
-
-            if self._isVersion118():
-                ext = 'pow' if not self.doEPA else 'epa'
-            else:
-                ext = 'ctf'
-
-            micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-            micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
+            micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
             if downFactor != 1:
                 # Replace extension by 'mrc' cause there are some formats
@@ -307,22 +310,11 @@ class ProtGctf(em.ProtCTFMicrographs):
                 sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
                 self._params['scannedPixelSize'] = sps
             else:
-                if ih.existsLocation(micFn):
-                    ih.convert(micFn, micFnMrc, em.DT_FLOAT)
-                else:
-                    print >> sys.stderr, "Missing input micrograph %s" % micFn
-
-            # Update _params dictionary
-            self._params['micFn'] = micFnMrc
-            self._params['micDir'] = micDir
-            self._params['gctfOut'] = self._getCtfOutPath(micDir)
-
-        except:
-            import traceback
-            traceback.print_exc()
+                ih.convert(micFn, micFnMrc, em.DT_FLOAT)
 
         try:
             args = self._args % self._params
+            args += ' %s/*.mrc' % micPath
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
 
@@ -333,58 +325,82 @@ class ProtGctf(em.ProtCTFMicrographs):
             pwutils.moveFile(micFnCtfFit, ctffitFile)
 
         except:
-            print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
+            print("ERROR: Gctf has failed")
             import traceback
             traceback.print_exc()
 
-        # Let's notify that this micrograph has been processed
-        # just creating an empty file at the end (after success or failure)
-        open(doneFile, 'w')
-        # Let's clean the temporary mrc micrographs
-        pwutils.cleanPath(micFnMrc)
+        def _getFile(micBase, suffix):
+            return os.path.join(micPath, micBase + suffix)
+
+        for mic in micList:
+            micFn = mic.getFileName()
+            micBase = pwutils.removeBaseExt(micFn)
+            micFnMrc = _getFile(micBase, '.mrc')
+            # Let's clean the temporary mrc micrograph
+            pwutils.cleanPath(micFnMrc)
+
+            # move output from tmp to extra
+            micFnCtf = _getFile(micBase, self._getExt())
+            micFnCtfLog = _getFile(micBase, '_gctf.log')
+            micFnCtfFit = _getFile(micBase, '_EPA.log')
+
+            micFnCtfOut = self._getPsdPath(micFn)
+            micFnCtfLogOut = self._getCtfOutPath(micFn)
+            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+
+            pwutils.moveFile(micFnCtf, micFnCtfOut)
+            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
     def _restimateCTF(self, ctfId):
-        """ Run Gctf with required parameters """
+        ih = em.ImageHandler()
         ctfModel = self.recalculateSet[ctfId]
         mic = ctfModel.getMicrograph()
         micFn = mic.getFileName()
-        micDir = self._getMicrographDir(mic)
+        micBase = pwutils.removeBaseExt(micFn)
+        micFnMrc = self._getTmpPath(micBase + '.mrc')
 
-        if self._isVersion118():
-            ext = 'pow' if not self.doEPA else 'epa'
+        # We convert the input micrograph on demand if not in .mrc
+        downFactor = self.ctfDownFactor.get()
+
+        if downFactor != 1:
+            # Replace extension by 'mrc' cause there are some formats
+            # that cannot be written (such as dm3)
+            ih.scaleFourier(micFn, micFnMrc, downFactor)
+            sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
+            self._params['scannedPixelSize'] = sps
         else:
-            ext = 'ctf'
-
-        micFnCtf = self._getTmpPath(pwutils.replaceBaseExt(micFn, ext))
-        micFnCtfFit = self._getTmpPath(pwutils.removeBaseExt(micFn) + '_EPA.log')
-
-        out = self._getCtfOutPath(micDir)
-        psdFile = self._getPsdPath(micDir)
-        ctffitFile = self._getCtfFitOutPath(micDir)
-
-        pwutils.cleanPath(out)
-
-        micFnMrc = self._getTmpPath(pwutils.replaceBaseExt(micFn, 'mrc'))
-        em.ImageHandler().convert(micFn, micFnMrc, em.DT_FLOAT)
+            ih.convert(micFn, micFnMrc, em.DT_FLOAT)
 
         # Update _params dictionary
         self._prepareRecalCommand(ctfModel)
-        self._params['micFn'] = micFnMrc
-        self._params['micDir'] = micDir
-        self._params['gctfOut'] = out
-        pwutils.cleanPath(psdFile)
 
         try:
-            self.runJob(gctf.Plugin.getProgram(), self._args % self._params,
+            args = self._args % self._params
+            args += ' %s' % micFnMrc
+            self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
         except:
             print("ERROR: Gctf has failed for micrograph %s" % micFnMrc)
             import traceback
             traceback.print_exc()
 
-        pwutils.moveFile(micFnCtf, psdFile)
-        pwutils.moveFile(micFnCtfFit, ctffitFile)
-        pwutils.cleanPattern(micFnMrc)
+        # Let's clean the temporary mrc micrograph
+        pwutils.cleanPath(micFnMrc)
+
+        # move output from tmp to extra
+
+        micFnCtf = self._getTmpPath(micBase + self._getExt())
+        micFnCtfLog = self._getTmpPath(micBase + '_gctf.log')
+        micFnCtfFit = self._getTmpPath(micBase + '_EPA.log')
+
+        micFnCtfOut = self._getPsdPath(micFn)
+        micFnCtfLogOut = self._getCtfOutPath(micFn)
+        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+
+        pwutils.moveFile(micFnCtf, micFnCtfOut)
+        pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+        pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
@@ -394,9 +410,9 @@ class ProtGctf(em.ProtCTFMicrographs):
             newSampling = mic.getSamplingRate() * self.ctfDownFactor.get()
             mic.setSamplingRate(newSampling)
 
-        micDir = self._getMicrographDir(mic)
-        out = self._getCtfOutPath(micDir)
-        psdFile = self._getPsdPath(micDir)
+        micFn = mic.getFileName()
+        out = self._getCtfOutPath(micFn)
+        psdFile = self._getPsdPath(micFn)
 
         ctfModel2 = em.CTFModel()
         readCtfModel(ctfModel2, out)
@@ -416,9 +432,6 @@ class ProtGctf(em.ProtCTFMicrographs):
         if nprocs < len(self.getGpuList()):
             errors.append("Multiple GPUs can not be used by a single process. "
                           "Make sure you specify more processors than GPUs. ")
-
-        if self._getStreamingBatchSize() > 1:
-            errors.append("Batch steps are not implemented yet for Gctf. ")
 
         return errors
 
@@ -513,17 +526,18 @@ class ProtGctf(em.ProtCTFMicrographs):
             self._args += "--Href_bfac %d " % self.HighResBf.get()
 
         self._args += "--ctfstar NONE --do_validation %d " % (1 if self.doValidate else 0)
-        self._args += "%(micFn)s "
-        self._args += "> %(gctfOut)s"
 
-    def _getPsdPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation.mrc')
+    def _getPsdPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf.mrc')
 
-    def _getCtfOutPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation.txt')
+    def _getCtfOutPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf.log')
 
-    def _getCtfFitOutPath(self, micDir):
-        return os.path.join(micDir, 'ctfEstimation_EPA.txt')
+    def _getCtfFitOutPath(self, micFn):
+        micFnBase = pwutils.removeBaseExt(micFn)
+        return self._getExtraPath(micFnBase + '_ctf_EPA.log')
 
     def _parseOutput(self, filename):
         """ Try to find the output estimation parameters

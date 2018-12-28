@@ -36,7 +36,7 @@ from gctf.protocols import ProtGctf
 def createCtfPlot(ctfSet, ctfId):
     ctfModel = ctfSet[ctfId]
     psdFn = ctfModel.getPsdFile()
-    fn = pwutils.removeExt(psdFn) + "_EPA.txt"
+    fn = pwutils.removeExt(psdFn) + "_EPA.log"
     gridsize = [1, 1]
     xplotter = EmPlotter(x=gridsize[0], y=gridsize[1],
                          windowTitle='CTF Fitting')
