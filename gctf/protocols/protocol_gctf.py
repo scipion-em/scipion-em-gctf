@@ -317,6 +317,13 @@ class ProtGctf(em.ProtCTFMicrographs):
             args += ' %s/*.mrc' % micPath
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
+
+            # Move output files to keep them
+            psdFile = self._getPsdPath(micDir)
+            ctffitFile = self._getCtfFitOutPath(micDir)
+            pwutils.moveFile(micFnCtf, psdFile)
+            pwutils.moveFile(micFnCtfFit, ctffitFile)
+
         except:
             print("ERROR: Gctf has failed")
             import traceback
