@@ -290,7 +290,7 @@ class ProtGctf(em.ProtCTFMicrographs):
     def _estimateCtfList(self, micList, *args):
         """ Estimate several micrographs at once, probably a bit more
         efficient. """
-        micPath = self._getTmpPath('mic_%04d' % micList[0].getObjId())
+        micPath = self._getMicrographDir(micList[0])
         if len(micList) > 1:
             micPath += ('-%04d' % micList[-1].getObjId())
 
