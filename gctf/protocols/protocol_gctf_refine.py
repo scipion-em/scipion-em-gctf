@@ -453,29 +453,29 @@ class ProtGctfRefine(em.ProtParticles):
             args += ' %s' % micFnMrc
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
+
+            # Let's clean the temporary mrc micrograph
+            pwutils.cleanPath(micFnMrc)
+    
+            # move output from tmp to extra
+            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
+            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
+            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
+            micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
+    
+            micFnCtfOut = self._getPsdPath(micFn)
+            micFnCtfLogOut = self._getCtfOutPath(micFn)
+            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+            micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
+    
+            pwutils.moveFile(micFnCtf, micFnCtfOut)
+            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+            pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
         except:
-            print("ERROR: Gctf has failed")
+            print("ERROR: Gctf has failed on %s" % micFnMrc)
             import traceback
             traceback.print_exc()
-
-        # Let's clean the temporary mrc micrograph
-        pwutils.cleanPath(micFnMrc)
-
-        # move output from tmp to extra
-        micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
-        micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
-        micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
-        micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
-
-        micFnCtfOut = self._getPsdPath(micFn)
-        micFnCtfLogOut = self._getCtfOutPath(micFn)
-        micFnCtfFitOut = self._getCtfFitOutPath(micFn)
-        micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
-
-        pwutils.moveFile(micFnCtf, micFnCtfOut)
-        pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-        pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
-        pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
 
     def createOutputStep(self):
         return
