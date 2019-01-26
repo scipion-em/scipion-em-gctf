@@ -110,6 +110,7 @@ def readCtfModel(ctfModel, filename, ctf4=False):
         ctfModel.setPhaseShift(ctfPhaseShift)
 
 
+# TODO: This function is not longer used...should we DELETE IT?
 def writeSetOfCoordinates(coordDir, coordSet, micsSet):
     """ Write a star file on metadata format for each micrograph
     on the coordSet.
@@ -153,6 +154,29 @@ _rlnCoordinateY #2
 
     if f:
         f.close()
+
+
+class CoordinatesWriter:
+    """ Simple class to write coordinates (in star file as in Relion). """
+    HEADER = """
+data_
+
+loop_
+_rlnCoordinateX #1
+_rlnCoordinateY #2
+"""
+
+    def __init__(self, filename):
+        """ Filename where to write the coordinates. """
+        pwutils.makePath(os.path.dirname(filename))  # Ensure path exists
+        self._f = open(filename, 'w')
+        self._f.write(self.HEADER)
+
+    def writeCoord(self, x, y):
+        self._f.write("%d %d\n" % (x, y))
+
+    def close(self):
+        self._f.close()
 
 
 def rowToCtfModel(ctfRow, ctfModel):
