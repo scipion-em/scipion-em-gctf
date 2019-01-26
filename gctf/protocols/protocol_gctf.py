@@ -297,6 +297,9 @@ class ProtGctf(em.ProtCTFMicrographs):
         pwutils.makePath(micPath)
         ih = em.ImageHandler()
 
+        def _getFile(micBase, suffix):
+            return os.path.join(micPath, micBase + suffix)
+
         for mic in micList:
             micFn = mic.getFileName()
             # We convert the input micrograph on demand if not in .mrc
@@ -318,39 +321,30 @@ class ProtGctf(em.ProtCTFMicrographs):
             self.runJob(gctf.Plugin.getProgram(), args,
                         env=gctf.Plugin.getEnviron())
 
-            # Move output files to keep them
-            psdFile = self._getPsdPath(micDir)
-            ctffitFile = self._getCtfFitOutPath(micDir)
-            pwutils.moveFile(micFnCtf, psdFile)
-            pwutils.moveFile(micFnCtfFit, ctffitFile)
+            for mic in micList:
+                micFn = mic.getFileName()
+                micBase = pwutils.removeBaseExt(micFn)
+                micFnMrc = _getFile(micBase, '.mrc')
+                # Let's clean the temporary mrc micrograph
+                pwutils.cleanPath(micFnMrc)
+
+                # move output from tmp to extra
+                micFnCtf = _getFile(micBase, self._getExt())
+                micFnCtfLog = _getFile(micBase, '_gctf.log')
+                micFnCtfFit = _getFile(micBase, '_EPA.log')
+
+                micFnCtfOut = self._getPsdPath(micFn)
+                micFnCtfLogOut = self._getCtfOutPath(micFn)
+                micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+
+                pwutils.moveFile(micFnCtf, micFnCtfOut)
+                pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+                pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
         except:
-            print("ERROR: Gctf has failed")
+            print("ERROR: Gctf has failed on %s/*.mrc" % micPath)
             import traceback
             traceback.print_exc()
-
-        def _getFile(micBase, suffix):
-            return os.path.join(micPath, micBase + suffix)
-
-        for mic in micList:
-            micFn = mic.getFileName()
-            micBase = pwutils.removeBaseExt(micFn)
-            micFnMrc = _getFile(micBase, '.mrc')
-            # Let's clean the temporary mrc micrograph
-            pwutils.cleanPath(micFnMrc)
-
-            # move output from tmp to extra
-            micFnCtf = _getFile(micBase, self._getExt())
-            micFnCtfLog = _getFile(micBase, '_gctf.log')
-            micFnCtfFit = _getFile(micBase, '_EPA.log')
-
-            micFnCtfOut = self._getPsdPath(micFn)
-            micFnCtfLogOut = self._getCtfOutPath(micFn)
-            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
-
-            pwutils.moveFile(micFnCtf, micFnCtfOut)
-            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
     def _restimateCTF(self, ctfId):
         ih = em.ImageHandler()
