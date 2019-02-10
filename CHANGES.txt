@@ -1,2 +1,7 @@
+1.0.3:
+	- major refactor of gctf refine protocol
+	- add batch support for gctf, refactoring
+	- updated viewers import, added protocols.conf
+	- add version 1.18 support
 1.0.2 - Fix getEnv bug in protocols, do not produce ctf str file
 1.0.0 - First version of the plugin
