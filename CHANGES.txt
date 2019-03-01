@@ -1,3 +1,4 @@
+1.0.4: Include protocol.conf to create the source distribution
 1.0.3:
 	- major refactor of gctf refine protocol
 	- add batch support for gctf, refactoring
