@@ -113,7 +113,7 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
             traceback.print_exc()
 
     def _reEstimateCTF(self, mic, ctf):
-        """ Run ctffind3 with required parameters """
+        """ Re-run gctf with required parameters """
         self._estimateCtfList([mic], **self._getRecalCtfParamsDict(ctf))
 
     def _createCtfModel(self, mic, updateSampling=True):
@@ -174,7 +174,7 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
         values = map(float, ctfModel.getObjComment().split())
         sampling = ctfModel.getMicrograph().getSamplingRate()
         return {
-            'step_focus': 1000.0,  # FIXME: Why is this different than in estimation???
+            'step_focus': 500.0,
             'lowRes': sampling / values[3],
             'highRes': sampling / values[4],
             'minDefocus': min([values[0], values[1]]),
