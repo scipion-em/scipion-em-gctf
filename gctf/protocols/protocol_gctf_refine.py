@@ -32,13 +32,11 @@ import pyworkflow.em.metadata as md
 import pyworkflow.protocol.params as params
 from pyworkflow.em.constants import RELATION_CTF
 from pyworkflow.em.protocol import EMProtocol
-from pyworkflow.em.data import Coordinate, SetOfCoordinates
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
 import gctf
 from gctf.convert import CoordinatesWriter, rowToCtfModel, getShifts
 from gctf.constants import *
-
 
 
 class ProtGctfRefine(em.ProtParticles):
