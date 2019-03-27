@@ -65,9 +65,6 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
         pw.utils.makePath(micPath)
         ih = pw.em.ImageHandler()
 
-        def _getFile(micBase, suffix):
-            return os.path.join(micPath, micBase + suffix)
-
         for mic in micList:
             micFn = mic.getFileName()
             # We convert the input micrograph on demand if not in .mrc
@@ -86,6 +83,9 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
             self.runJob(program, args) #, env=gctf.Plugin.getEnviron())
+
+            def _getFile(micBase, suffix):
+                return os.path.join(micPath, micBase + suffix)
 
             for mic in micList:
                 micFn = mic.getFileName()
@@ -125,15 +125,11 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
             mic.setSamplingRate(newSampling)
 
         micFn = mic.getFileName()
-        out = self._getCtfOutPath(micFn)
-        psdFile = self._getPsdPath(micFn)
+        ctf = self._gctfProgram.parseOutputAsCtf(
+            self._getCtfOutPath(micFn), psdFile=self._getPsdPath(micFn))
+        ctf.setMicrograph(mic)
 
-        ctfModel2 = pw.em.CTFModel()
-        readCtfModel(ctfModel2, out)
-        ctfModel2.setPsdFile(psdFile)
-        ctfModel2.setMicrograph(mic)
-
-        return ctfModel2
+        return ctf
 
     def _createOutputStep(self):
         pass

@@ -25,6 +25,7 @@
 # *
 # **************************************************************************
 
+import pyworkflow.em as pwem
 import pyworkflow.protocol.params as params
 
 from gctf import Plugin
@@ -239,6 +240,14 @@ class ProgramGctf:
         output file of the program execution.
         """
         return convert.parseGctfOutput(filename)
+
+    def parseOutputAsCtf(self, ctfFile, psdFile=None):
+        ctf = pwem.CTFModel()
+        convert.readCtfModel(ctf, ctfFile)
+        if psdFile:
+            ctf.setPsdFile(psdFile)
+
+        return ctf
 
     def _getArgs(self, protocol):
         # Update first the _params dict
