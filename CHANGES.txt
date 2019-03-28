@@ -1,4 +1,7 @@
-1.0.4: Include protocol.conf to create the source distribution
+1.0.5:
+    - Refactored the CTF estimation logic into a ProgramCTF class, avoiding use of global dict for ctf params.
+1.0.4:
+    - Include protocol.conf to create the source distribution
 1.0.3:
 	- major refactor of gctf refine protocol
 	- add batch support for gctf, refactoring
