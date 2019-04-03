@@ -291,7 +291,7 @@ class ProgramGctf:
             args += "--phase_shift_L %f " % protocol.phaseShiftL
             args += "--phase_shift_H %f " % protocol.phaseShiftH
             args += "--phase_shift_S %f " % protocol.phaseShiftS
-            args += "--phase_shift_T %d " % (1 + protocol.phaseShiftT)
+            args += "--phase_shift_T %d " % (1 + protocol.phaseShiftT.get())
 
             if self.isVersion118():
                 args += ("--cosearch_refine_ps %d "
