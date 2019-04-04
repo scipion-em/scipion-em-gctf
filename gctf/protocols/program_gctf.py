@@ -299,8 +299,8 @@ class ProgramGctf:
                 args += "--refine_2d_T %d " % protocol.refine2DT
 
         if protocol.doHighRes:
-            args += "--Href_resL %d " % protocol.HighResL
-            args += "--Href_resH %d " % protocol.HighResH
+            args += "--Href_resL %0.3f " % protocol.HighResL
+            args += "--Href_resH %0.3f " % protocol.HighResH
             args += "--Href_bfac %d " % protocol.HighResBf
 
         args += ("--ctfstar NONE --do_validation %d "
