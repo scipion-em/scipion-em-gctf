@@ -291,7 +291,7 @@ class ProgramGctf:
             args += "--phase_shift_L %f " % protocol.phaseShiftL
             args += "--phase_shift_H %f " % protocol.phaseShiftH
             args += "--phase_shift_S %f " % protocol.phaseShiftS
-            args += "--phase_shift_T %d " % (1 + protocol.phaseShiftT)
+            args += "--phase_shift_T %d " % (1 + protocol.phaseShiftT.get())
 
             if self.isVersion118():
                 args += ("--cosearch_refine_ps %d "
@@ -299,8 +299,8 @@ class ProgramGctf:
                 args += "--refine_2d_T %d " % protocol.refine2DT
 
         if protocol.doHighRes:
-            args += "--Href_resL %d " % protocol.HighResL
-            args += "--Href_resH %d " % protocol.HighResH
+            args += "--Href_resL %f " % protocol.HighResL
+            args += "--Href_resH %f " % protocol.HighResH
             args += "--Href_bfac %d " % protocol.HighResBf
 
         args += ("--ctfstar NONE --do_validation %d "
