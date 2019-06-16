@@ -43,8 +43,8 @@ class Plugin(pyworkflow.em.Plugin):
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(GCTF_HOME, 'gctf-1.06')
-        cls._defineVar(GCTF, 'Gctf-v1.06_sm_20_cu8.0_x86_64')
+        cls._defineEmVar(GCTF_HOME, 'gctf-1.18')
+        cls._defineVar(GCTF, 'Gctf_v1.18_b2_sm60_cu8.0')
 
     @classmethod
     def getEnviron(cls):
@@ -58,21 +58,17 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def defineBinaries(cls, env):
         env.addPackage('gctf', version='1.06',
-                       tar='Gctf_v1.06.tgz',
-                       default=True)
+                       tar='Gctf_v1.06.tgz')
 
         env.addPackage('gctf', version='1.18',
-                       tar='Gctf_v1.18.tgz')
+                       tar='Gctf_v1.18.tgz',
+                       default=True)
 
     @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
         return os.path.join(cls.getHome('bin'),
                             os.path.basename(cls.getVar(GCTF)))
-
-    @classmethod
-    def isNewVersion(cls):
-        return not cls.getActiveVersion().startswith("0.50")
 
 
 pyworkflow.em.Domain.registerPlugin(__name__)
