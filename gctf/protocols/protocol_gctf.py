@@ -58,28 +58,29 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
     def _estimateCtfList(self, micList, *args, **kwargs):
         """ Estimate several micrographs at once, probably a bit more
         efficient. """
-        micPath = self._getMicrographDir(micList[0])
-        if len(micList) > 1:
-            micPath += ('-%04d' % micList[-1].getObjId())
-
-        pw.utils.makePath(micPath)
-        ih = pw.em.ImageHandler()
-
-        for mic in micList:
-            micFn = mic.getFileName()
-            # We convert the input micrograph on demand if not in .mrc
-            downFactor = self.ctfDownFactor.get()
-            micFnMrc = pw.utils.join(micPath, pw.utils.replaceBaseExt(micFn, 'mrc'))
-
-            if downFactor != 1:
-                # Replace extension by 'mrc' cause there are some formats
-                # that cannot be written (such as dm3)
-                ih.scaleFourier(micFn, micFnMrc, downFactor)
-                sps = self._params['scannedPixelSize'] * downFactor
-                kwargs['scannedPixelSize'] = sps
-            else:
-                ih.convert(micFn, micFnMrc, pw.em.DT_FLOAT)
         try:
+            micPath = self._getMicrographDir(micList[0])
+            if len(micList) > 1:
+                micPath += ('-%04d' % micList[-1].getObjId())
+
+            pw.utils.makePath(micPath)
+            ih = pw.em.ImageHandler()
+
+            for mic in micList:
+                micFn = mic.getFileName()
+                # We convert the input micrograph on demand if not in .mrc
+                downFactor = self.ctfDownFactor.get()
+                micFnMrc = pw.utils.join(micPath, pw.utils.replaceBaseExt(micFn, 'mrc'))
+
+                if downFactor != 1:
+                    # Replace extension by 'mrc' cause there are some formats
+                    # that cannot be written (such as dm3)
+                    ih.scaleFourier(micFn, micFnMrc, downFactor)
+                    sps = self._params['scannedPixelSize'] * downFactor
+                    kwargs['scannedPixelSize'] = sps
+                else:
+                    ih.convert(micFn, micFnMrc, pw.em.DT_FLOAT)
+
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
             self.runJob(program, args) #, env=gctf.Plugin.getEnviron())
@@ -106,6 +107,8 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
                 pw.utils.moveFile(micFnCtf, micFnCtfOut)
                 pw.utils.moveFile(micFnCtfLog, micFnCtfLogOut)
                 pw.utils.moveFile(micFnCtfFit, micFnCtfFitOut)
+
+            pw.utils.cleanPath(micPath)
 
         except:
             print("ERROR: Gctf has failed on %s/*.mrc" % micPath)
