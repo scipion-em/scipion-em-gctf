@@ -133,7 +133,7 @@ class TestGctf(TestGctfBase):
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=5)
+                ctfModel.getDefocusAngle(), values[2], delta=20)
             self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 2.474, delta=0.001)
@@ -158,7 +158,7 @@ class TestGctf(TestGctfBase):
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=5)
+                ctfModel.getDefocusAngle(), values[2], delta=20)
             self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 1.237, delta=0.001)
