@@ -23,10 +23,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+from itertools import izip
 
 from pyworkflow.em import *
 from pyworkflow.tests import *
 
+import gctf
 from gctf.protocols import ProtGctfRefine, ProtGctf
 
 
@@ -122,8 +124,8 @@ class TestGctf(TestGctfBase):
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[23956, 23537, 52, 5, 0.3],
-                      [22319, 21973, 52, 5, 0.3],
+        valuesList = [[24028, 23404, 52, 5, 0.3],
+                      [22319, 21973, 35, 6, 0.3],
                       [22657, 22362, 56, 5, 0.3]]
         for ctfModel, values in izip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
@@ -147,9 +149,9 @@ class TestGctf(TestGctfBase):
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[23885, 23552, 56, 3, 0.38],
-                      [22250, 21892, 52, 4, 0.38],
-                      [22482, 22268, 39, 4, 0.38]]
+        valuesList = [[24106, 23218, 49, 5, 0.4],
+                      [22226, 21712, 42, 4, 0.4],
+                      [22536, 22237, 48, 4, 0.4]]
         for ctfModel, values in izip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
@@ -178,39 +180,47 @@ class TestGctfRefine(TestGctfBase):
         cls.protImportMics = cls.runImportMicrographBPV(cls.micFn)
 
     def testRunGctf1(self):
-        protCTF = ProtGctfRefine(objLabel='gCTF local refinement')
-        protCTF.inputParticles.set(self.protImport1.outputParticles)
-        protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
-        protCTF.ctfDownFactor.set(2)
+        if gctf.Plugin.getActiveVersion() in ['1.18']:
+            print('Gctf version 1.18 does not support local refinement.'
+                  ' Skipping test..')
+        else:
+            protCTF = ProtGctfRefine(objLabel='gCTF local refinement')
+            protCTF.inputParticles.set(self.protImport1.outputParticles)
+            protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
+            protCTF.ctfDownFactor.set(2)
 
-        self.proj.launchProtocol(protCTF, wait=True)
-        self.assertIsNotNone(protCTF.outputParticles,
-                             "SetOfParticles has not been produced.")
-        self.assertEqual(protCTF.inputParticles.get().getSize(),
-                         protCTF.outputParticles.getSize())
+            self.proj.launchProtocol(protCTF, wait=True)
+            self.assertIsNotNone(protCTF.outputParticles,
+                                 "SetOfParticles has not been produced.")
+            self.assertEqual(protCTF.inputParticles.get().getSize(),
+                             protCTF.outputParticles.getSize())
 
     def testRunGctf2(self):
-        protCTF = ProtGctfRefine(objLabel='gCTF local refinement (with input CTFs)')
-        protCTF.inputParticles.set(self.protImport2.outputParticles)
-        protCTF.ctfDownFactor.set(2)
-        protCTF.useInputCtf.set(True)
-        protCTF.applyShifts.set(True)
-        protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
+        if gctf.Plugin.getActiveVersion() in ['1.18']:
+            print('Gctf version 1.18 does not support local refinement.'
+                  ' Skipping test..')
+        else:
+            protCTF = ProtGctfRefine(objLabel='gCTF local refinement (with input CTFs)')
+            protCTF.inputParticles.set(self.protImport2.outputParticles)
+            protCTF.ctfDownFactor.set(2)
+            protCTF.useInputCtf.set(True)
+            protCTF.applyShifts.set(True)
+            protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
 
-        # run import CTF protocol
-        protImportCTF = self.newProtocol(ProtImportCTF,
-                                         objLabel='import CTF from scipion',
-                                         importFrom=ProtImportCTF.IMPORT_FROM_SCIPION,
-                                         filesPath=self.ctfFn)
-        protImportCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
-        self.launchProtocol(protImportCTF)
-        self.assertIsNotNone(protImportCTF.outputCTF,
-                             "There was a problem when importing ctfs.")
+            # run import CTF protocol
+            protImportCTF = self.newProtocol(ProtImportCTF,
+                                             objLabel='import CTF from scipion',
+                                             importFrom=ProtImportCTF.IMPORT_FROM_SCIPION,
+                                             filesPath=self.ctfFn)
+            protImportCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
+            self.launchProtocol(protImportCTF)
+            self.assertIsNotNone(protImportCTF.outputCTF,
+                                 "There was a problem when importing ctfs.")
 
-        protCTF.ctfRelations.set(protImportCTF.outputCTF)
+            protCTF.ctfRelations.set(protImportCTF.outputCTF)
 
-        self.proj.launchProtocol(protCTF, wait=True)
-        self.assertIsNotNone(protCTF.outputParticles,
-                             "SetOfParticles has not been produced.")
-        self.assertEqual(protCTF.inputParticles.get().getSize(),
-                         protCTF.outputParticles.getSize())
+            self.proj.launchProtocol(protCTF, wait=True)
+            self.assertIsNotNone(protCTF.outputParticles,
+                                 "SetOfParticles has not been produced.")
+            self.assertEqual(protCTF.inputParticles.get().getSize(),
+                             protCTF.outputParticles.getSize())
