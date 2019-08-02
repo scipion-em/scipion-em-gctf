@@ -1,3 +1,4 @@
+1.0.7 - switch to 1.18 by default
 1.0.6 - fix few parameters formatting
 1.0.5:
     - Refactored the CTF estimation logic into a ProgramCTF class, avoiding use of global dict for ctf params.
