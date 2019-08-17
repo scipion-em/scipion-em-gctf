@@ -30,6 +30,7 @@ from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
 from pyworkflow.em.viewers import EmPlotter, CtfView
 import pyworkflow.em.viewers.showj as showj
 
+import gctf
 from gctf.protocols import ProtGctf
 
 
@@ -44,10 +45,14 @@ def createCtfPlot(ctfSet, ctfId):
     a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF',
                                yformat=False)
     a.invert_xaxis()
-    for i in 1, 3, 4:
+    version = gctf.Plugin.getActiveVersion()
+    curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]
+
+    for i in curves:
         _plotCurve(a, i, fn)
     xplotter.showLegend(['simulated CTF',
                          #'equiphase avg.',
+                         #'bg', #  only for v1.18
                          'equiphase avg. - bg',
                          'cross correlation'])
     a.grid(True)
