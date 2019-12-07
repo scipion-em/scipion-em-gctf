@@ -1,3 +1,4 @@
+1.0.8 - Migrating to python3
 1.0.7 - switch to 1.18 by default
 1.0.6 - fix few parameters formatting
 1.0.5:

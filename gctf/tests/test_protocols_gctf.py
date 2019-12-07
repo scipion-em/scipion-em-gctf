@@ -23,9 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from itertools import izip
+from pwem.protocols import ProtImportMicrographs, ProtImportParticles, \
+    ProtImportCTF
 
-from pyworkflow.em import *
+try:
+    from itertools import izip
+except:
+    izip = zip
+
 from pyworkflow.tests import *
 
 import gctf

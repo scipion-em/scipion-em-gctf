@@ -27,11 +27,11 @@
 from collections import OrderedDict
 
 import pyworkflow.utils as pwutils
-import pyworkflow.em as em
-import pyworkflow.em.metadata as md
+import pwem.metadata as md
 import pyworkflow.protocol.params as params
-from pyworkflow.em.constants import RELATION_CTF
-from pyworkflow.em.protocol import EMProtocol
+from pwem.constants import RELATION_CTF
+from pwem.convert import ImageHandler, DT_FLOAT
+from pwem.protocols import EMProtocol, ProtParticles
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
 import gctf
@@ -39,7 +39,7 @@ from gctf.convert import CoordinatesWriter, rowToCtfModel, getShifts
 from gctf.constants import *
 
 
-class ProtGctfRefine(em.ProtParticles):
+class ProtGctfRefine(ProtParticles):
     """
     Refines local CTF of a set of particles using Gctf.
 
@@ -354,7 +354,7 @@ class ProtGctfRefine(em.ProtParticles):
         convIdDeps = [self._insertFunctionStep('convertInputStep')]
         refineDeps = []
 
-        for micName, mic in self.micDict.iteritems():
+        for micName, mic in self.micDict.items():
             stepId = self._insertFunctionStep('refineCtfStep', mic.getFileName(), micName,
                                               prerequisites=convIdDeps)
             refineDeps.append(stepId)
@@ -392,7 +392,7 @@ class ProtGctfRefine(em.ProtParticles):
         scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
         doScale = abs(scale - 1.0 > 0.00001)
         if doScale:
-            print "Scaling coordinates by a factor *%0.2f*" % scale
+            print("Scaling coordinates by a factor *%0.2f*" % scale)
 
         self._lastWriter = None
         coordDir = self._getTmpPath()
@@ -422,7 +422,7 @@ class ProtGctfRefine(em.ProtParticles):
         # We convert the input micrograph on demand if not in .mrc
 
         downFactor = self.ctfDownFactor.get()
-        ih = em.ImageHandler()
+        ih = ImageHandler()
         micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
         if downFactor != 1:
@@ -432,7 +432,7 @@ class ProtGctfRefine(em.ProtParticles):
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micFn, micFnMrc, em.DT_FLOAT)
+            ih.convert(micFn, micFnMrc, DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         if self.useInputCtf and self.ctfRelations.hasValue():

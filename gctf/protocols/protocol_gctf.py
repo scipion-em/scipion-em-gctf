@@ -26,14 +26,17 @@
 
 import os
 
-import pyworkflow as pw
+import pyworkflow.utils as pwutils
+from pwem.convert import ImageHandler, DT_FLOAT
+from pwem.objects import CTFModel
+from pwem.protocols import ProtCTFMicrographs
+from pyworkflow.utils import *
 
-import gctf
-from gctf.convert import readCtfModel
+
 from .program_gctf import ProgramGctf
 
 
-class ProtGctf(pw.em.ProtCTFMicrographs):
+class ProtGctf(ProtCTFMicrographs):
     """ Estimates CTF on a set of micrographs using Gctf.
 
     To find more information about Gctf go to:
@@ -42,11 +45,11 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
     _label = 'ctf estimation'
 
     def _defineCtfParamsDict(self):
-        pw.em.ProtCTFMicrographs._defineCtfParamsDict(self)
+        ProtCTFMicrographs._defineCtfParamsDict(self)
         self._gctfProgram = ProgramGctf(self)
 
     def _defineParams(self, form):
-        pw.em.ProtCTFMicrographs._defineParams(self, form)
+        ProtCTFMicrographs._defineParams(self, form)
         ProgramGctf.defineFormParams(form)
         self._defineStreamingParams(form)
         form.addParallelSection(threads=1, mpi=1)
@@ -63,14 +66,14 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
             if len(micList) > 1:
                 micPath += ('-%04d' % micList[-1].getObjId())
 
-            pw.utils.makePath(micPath)
-            ih = pw.em.ImageHandler()
+            makePath(micPath)
+            ih = ImageHandler()
 
             for mic in micList:
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
                 downFactor = self.ctfDownFactor.get()
-                micFnMrc = pw.utils.join(micPath, pw.utils.replaceBaseExt(micFn, 'mrc'))
+                micFnMrc = utils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
                 if downFactor != 1:
                     # Replace extension by 'mrc' cause there are some formats
@@ -79,7 +82,7 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
                     sps = self._params['scannedPixelSize'] * downFactor
                     kwargs['scannedPixelSize'] = sps
                 else:
-                    ih.convert(micFn, micFnMrc, pw.em.DT_FLOAT)
+                    ih.convert(micFn, micFnMrc, DT_FLOAT)
 
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
@@ -90,10 +93,10 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
 
             for mic in micList:
                 micFn = mic.getFileName()
-                micBase = pw.utils.removeBaseExt(micFn)
+                micBase = pwutils.removeBaseExt(micFn)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
-                pw.utils.cleanPath(micFnMrc)
+                cleanPath(micFnMrc)
 
                 # move output from tmp to extra
                 micFnCtf = _getFile(micBase, self._gctfProgram.getExt())
@@ -104,11 +107,11 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
                 micFnCtfLogOut = self._getCtfOutPath(micFn)
                 micFnCtfFitOut = self._getCtfFitOutPath(micFn)
 
-                pw.utils.moveFile(micFnCtf, micFnCtfOut)
-                pw.utils.moveFile(micFnCtfLog, micFnCtfLogOut)
-                pw.utils.moveFile(micFnCtfFit, micFnCtfFitOut)
+                moveFile(micFnCtf, micFnCtfOut)
+                moveFile(micFnCtfLog, micFnCtfLogOut)
+                moveFile(micFnCtfFit, micFnCtfFitOut)
 
-            pw.utils.cleanPath(micPath)
+            cleanPath(micPath)
 
         except:
             print("ERROR: Gctf has failed on %s/*.mrc" % micPath)
@@ -185,15 +188,15 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
         }
 
     def _getPsdPath(self, micFn):
-        micFnBase = pw.utils.removeBaseExt(micFn)
+        micFnBase = pwutils.removeBaseExt(micFn)
         return self._getExtraPath(micFnBase + '_ctf.mrc')
 
     def _getCtfOutPath(self, micFn):
-        micFnBase = pw.utils.removeBaseExt(micFn)
+        micFnBase = pwutils.removeBaseExt(micFn)
         return self._getExtraPath(micFnBase + '_ctf.log')
 
     def _getCtfFitOutPath(self, micFn):
-        micFnBase = pw.utils.removeBaseExt(micFn)
+        micFnBase = pwutils.removeBaseExt(micFn)
         return self._getExtraPath(micFnBase + '_ctf_EPA.log')
 
     def _parseOutput(self, filename):
@@ -204,7 +207,7 @@ class ProtGctf(pw.em.ProtCTFMicrographs):
         return self._gctfProgram.parseOutput(filename)
 
     def _getCTFModel(self, defocusU, defocusV, defocusAngle, psdFile):
-        ctf = pw.em.CTFModel()
+        ctf = CTFModel()
         ctf.setStandardDefocus(defocusU, defocusV, defocusAngle)
         ctf.setPsdFile(psdFile)
 

@@ -27,9 +27,9 @@
 This module implement some wizards
 """
 
-from pyworkflow.em.constants import *
+from pwem.constants import *
 import pyworkflow.gui.dialog as dialog
-from pyworkflow.em.wizard import *
+from pwem.wizards import *
 
 from gctf.protocols import ProtGctf, ProtGctfRefine
 

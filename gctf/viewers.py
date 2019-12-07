@@ -27,8 +27,7 @@
 from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.em.viewers import EmPlotter, CtfView
-import pyworkflow.em.viewers.showj as showj
+from pwem.viewers import EmPlotter, CtfView, showj
 
 import gctf
 from gctf.protocols import ProtGctf

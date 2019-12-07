@@ -26,7 +26,7 @@
 
 import os
 
-import pyworkflow.em
+import pwem
 import pyworkflow.utils as pwutils
 
 from .constants import *
@@ -36,7 +36,7 @@ _logo = "gctf_logo.png"
 _references = ['Zhang2016']
 
 
-class Plugin(pyworkflow.em.Plugin):
+class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
     _supportedVersions = ['1.06', '1.18']
@@ -71,4 +71,4 @@ class Plugin(pyworkflow.em.Plugin):
                             os.path.basename(cls.getVar(GCTF)))
 
 
-pyworkflow.em.Domain.registerPlugin(__name__)
+pwem.Domain.registerPlugin(__name__)

@@ -24,6 +24,6 @@
 # *
 # **************************************************************************
 
-from protocol_gctf import ProtGctf
-from protocol_gctf_refine import ProtGctfRefine
+from .protocol_gctf import ProtGctf
+from .protocol_gctf_refine import ProtGctfRefine
 

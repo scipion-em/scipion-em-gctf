@@ -35,9 +35,9 @@ import numpy
 from collections import OrderedDict
 
 from pyworkflow.object import ObjectWrap
-from pyworkflow.em.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
-from pyworkflow.em.convert.transformations import  translation_from_matrix
-import pyworkflow.em.metadata as md
+from pwem.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
+from pwem.convert.transformations import  translation_from_matrix
+import pwem.metadata as md
 import pyworkflow.utils as pwutils
 
 
@@ -83,7 +83,7 @@ def parseGctfOutput(filename):
         f.close()
     else:
         result = None
-        print "Warning: Missing file: ", filename
+        print("Warning: Missing file: ", filename)
 
     return result
 
@@ -182,7 +182,7 @@ _rlnCoordinateY #2
 def rowToCtfModel(ctfRow, ctfModel):
     """ Create a CTFModel from a row of a meta """
     if ctfRow.containsAll(CTF_DICT):
-        for attr, label in CTF_DICT.iteritems():
+        for attr, label in CTF_DICT.items():
             value = ctfRow.getValue(label)
             if not hasattr(ctfModel, attr):
                 setattr(ctfModel, attr, ObjectWrap(value))

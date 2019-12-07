@@ -27,7 +27,7 @@
 import os
 
 import pyworkflow.utils as pwutils 
-from pyworkflow.em.data import CTFModel
+from pwem.objects import CTFModel
 
 from .convert import readCtfModel
 

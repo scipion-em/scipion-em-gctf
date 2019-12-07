@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 
-import pyworkflow.em as pwem
+import pwem
 import pyworkflow.protocol.params as params
 
 from gctf import Plugin
