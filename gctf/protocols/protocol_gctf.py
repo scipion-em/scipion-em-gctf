@@ -24,8 +24,6 @@
 # *
 # **************************************************************************
 
-import os
-
 import pyworkflow.utils as pwutils
 from pwem.convert import ImageHandler, DT_FLOAT
 from pwem.objects import CTFModel
@@ -177,7 +175,7 @@ class ProtGctf(ProtCTFMicrographs):
         self._argsGctf()
 
     def _getRecalCtfParamsDict(self, ctfModel):
-        values = map(float, ctfModel.getObjComment().split())
+        values = list(map(float, ctfModel.getObjComment().split()))
         sampling = ctfModel.getMicrograph().getSamplingRate()
         return {
             'step_focus': 500.0,
@@ -212,4 +210,3 @@ class ProtGctf(ProtCTFMicrographs):
         ctf.setPsdFile(psdFile)
 
         return ctf
-

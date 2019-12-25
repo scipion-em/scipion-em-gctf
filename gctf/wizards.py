@@ -23,9 +23,6 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-"""
-This module implement some wizards
-"""
 
 from pwem.constants import *
 import pyworkflow.gui.dialog as dialog
@@ -45,10 +42,10 @@ class GctfCTFWizard(CtfWizard):
         
         label, value = self._getInputProtocol(self._targets, protocol)
         
-        protParams = {}
-        protParams['input']= protocol.inputMicrographs
-        protParams['label']= label
-        protParams['value']= value
+        protParams = dict()
+        protParams['input'] = protocol.inputMicrographs
+        protParams['label'] = label
+        protParams['value'] = value
         return protParams
     
     def _getProvider(self, protocol):

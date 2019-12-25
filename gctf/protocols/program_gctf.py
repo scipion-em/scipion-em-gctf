@@ -243,7 +243,7 @@ class ProgramGctf:
         return convert.parseGctfOutput(filename)
 
     def parseOutputAsCtf(self, ctfFile, psdFile=None):
-        ctf = pwem.CTFModel()
+        ctf = pwem.objects.CTFModel()
         convert.readCtfModel(ctf, ctfFile)
         if psdFile:
             ctf.setPsdFile(psdFile)

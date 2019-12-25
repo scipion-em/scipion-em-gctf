@@ -32,7 +32,7 @@ from pwem.objects import CTFModel
 from .convert import readCtfModel
 
 
-class GctfImportCTF():
+class GctfImportCTF:
     """ Import CTF estimated with GCTF. """
     def __init__(self, protocol):
         self.protocol = protocol
@@ -51,7 +51,7 @@ class GctfImportCTF():
                            fnBase.replace('_ctffind3', ''),
                            fnBase.replace('_gctf', '')]
             for prefix in psdPrefixes:
-                psdFile =  prefix + suffix
+                psdFile = prefix + suffix
                 if os.path.exists(psdFile):
                     if psdFile.endswith('.ctf'):
                         psdFile += ':mrc'

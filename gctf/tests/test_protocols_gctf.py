@@ -1,6 +1,6 @@
 # **************************************************************************
 # *
-# * Authors:    Grigory Sharov (sharov@igbmc.fr)
+# * Authors:    Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
 # *
 # * MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
@@ -23,12 +23,12 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from pwem.protocols import ProtImportMicrographs, ProtImportParticles, \
-    ProtImportCTF
+from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
+                            ProtImportCTF)
 
 try:
     from itertools import izip
-except:
+except ImportError:
     izip = zip
 
 from pyworkflow.tests import *
