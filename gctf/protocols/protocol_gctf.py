@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -71,7 +71,7 @@ class ProtGctf(ProtCTFMicrographs):
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
                 downFactor = self.ctfDownFactor.get()
-                micFnMrc = utils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+                micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
                 if downFactor != 1:
                     # Replace extension by 'mrc' cause there are some formats
@@ -84,7 +84,7 @@ class ProtGctf(ProtCTFMicrographs):
 
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
-            self.runJob(program, args) #, env=gctf.Plugin.getEnviron())
+            self.runJob(program, args)  # , env=gctf.Plugin.getEnviron())
 
             def _getFile(micBase, suffix):
                 return os.path.join(micPath, micBase + suffix)

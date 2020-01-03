@@ -8,7 +8,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -29,9 +29,9 @@
 import pwem
 import pyworkflow.protocol.params as params
 
-from gctf import Plugin
-import gctf.convert as convert
-import gctf.constants as constants
+from .. import Plugin
+from ..convert import readCtfModel, parseGctfOutput
+from ..constants import CCC
 
 
 class ProgramGctf:
@@ -175,7 +175,7 @@ class ProgramGctf:
                       help='Phase shift search step. Do not worry about '
                            'the accuracy; this is just the search step, '
                            'Gctf will refine the phase shift anyway.')
-        form.addParam('phaseShiftT', params.EnumParam, default=constants.CCC,
+        form.addParam('phaseShiftT', params.EnumParam, default=CCC,
                       condition='doPhShEst',
                       label='Target',
                       choices=['CCC', 'Resolution limit'],
@@ -240,11 +240,11 @@ class ProgramGctf:
         """ Retrieve defocus U, V and angle from the
         output file of the program execution.
         """
-        return convert.parseGctfOutput(filename)
+        return parseGctfOutput(filename)
 
     def parseOutputAsCtf(self, ctfFile, psdFile=None):
         ctf = pwem.objects.CTFModel()
-        convert.readCtfModel(ctf, ctfFile)
+        readCtfModel(ctf, ctfFile)
         if psdFile:
             ctf.setPsdFile(psdFile)
 

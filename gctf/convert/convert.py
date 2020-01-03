@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -28,7 +28,7 @@ This module contains converter functions that will serve to:
 1. Write from base classes to Gctf specific files
 2. Read from Gctf files to base classes
 """
-
+from io import open
 import os
 import re
 import numpy
@@ -68,11 +68,11 @@ def parseGctfOutput(filename):
                 # Always map defU, defV and angle
                 result[0:3] = map(float, parts[0:3])
 
-                if parts[4] == 'Final': # no ctfPhaseShift
+                if parts[4] == 'Final':  # no ctfPhaseShift
                     result[3] = float(parts[3])
                 else:
-                    result[3] = float(parts[4]) # CC is now in position 4
-                    result[4] = float(parts[3]) # get ctfPhaseShift
+                    result[3] = float(parts[4])  # CC is now in position 4
+                    result[4] = float(parts[3])  # get ctfPhaseShift
             if 'Resolution limit estimated by EPA' in line:
                 # Take ctfResolution as a tuple
                 # that is the last value in the line
@@ -108,52 +108,6 @@ def readCtfModel(ctfModel, filename, ctf4=False):
     # Avoid creation of phaseShift
     if ctfPhaseShift != 0:
         ctfModel.setPhaseShift(ctfPhaseShift)
-
-
-# TODO: This function is not longer used...should we DELETE IT?
-def writeSetOfCoordinates(coordDir, coordSet, micsSet):
-    """ Write a star file on metadata format for each micrograph
-    on the coordSet.
-    Params:
-        coordDir: the directory where the .star files will be written.
-        coordSet: the SetOfCoordinates that will be read.
-        micsSet: the SetOfMicrographs that will be read.
-    """
-    header = """
-data_
-
-loop_
-_rlnCoordinateX #1
-_rlnCoordinateY #2
-"""
-
-    # Create a dictionary with the pos filenames for each micrograph
-    posDict = {}
-    for mic in micsSet:
-        micBase = pwutils.removeBaseExt(mic.getFileName())
-        posDict[mic.getObjId()] = pwutils.join(coordDir, micBase,
-                                               micBase + '_coords.star')
-        pwutils.makePath(pwutils.join(coordDir, micBase))
-    f = None
-    lastMicId = None
-
-    # Iterate only once over the whole SetOfCoordinates, but ordering by
-    # micrograph Id, so we can detect when there are coordinates from a
-    # new micrographs to write the new star file
-    for coord in coordSet.iterItems(orderBy='_micId'):
-        micId = coord.getMicId()
-
-        if micId != lastMicId:  # Detect there is a new micrograph
-            if f:  # we need to close previous opened file
-                f.close()
-            f = open(posDict[micId], 'w')
-            f.write(header)
-            lastMicId = micId
-
-        f.write("%d %d\n" % coord.getPosition())
-
-    if f:
-        f.close()
 
 
 class CoordinatesWriter:

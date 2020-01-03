@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -34,9 +34,9 @@ from pwem.convert import ImageHandler, DT_FLOAT
 from pwem.protocols import EMProtocol, ProtParticles
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
-import gctf
-from gctf.convert import CoordinatesWriter, rowToCtfModel, getShifts
-from gctf.constants import *
+from .. import Plugin
+from ..convert import CoordinatesWriter, rowToCtfModel, getShifts
+from ..constants import *
 
 
 class ProtGctfRefine(ProtParticles):
@@ -338,7 +338,7 @@ class ProtGctfRefine(ProtParticles):
         lastMicId = None
         # TODO: If this loop is too expensive for very large input datasets,
         # we could consider using the aggregate functions in the mapper
-        for particle in inputParticles.iterItems('_micId'):
+        for particle in inputParticles.iterItems(orderBy='_micId'):
             micId = particle.getMicId()
             if micId != lastMicId:  # Do no repeat check when this is the same mic
                 micName = particle.getCoordinate().getMicName()
@@ -464,8 +464,8 @@ class ProtGctfRefine(ProtParticles):
         try:
             args = self._args % self._params
             args += ' %s' % micFnMrc
-            self.runJob(gctf.Plugin.getProgram(), args,
-                        env=gctf.Plugin.getEnviron())
+            self.runJob(Plugin.getProgram(), args,
+                        env=Plugin.getEnviron())
 
             # Let's clean the temporary mrc micrograph
             pwutils.cleanPath(micFnMrc)
@@ -521,7 +521,7 @@ class ProtGctfRefine(ProtParticles):
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
-        if gctf.Plugin.getActiveVersion() in ['1.18']:
+        if Plugin.getActiveVersion() in ['1.18']:
             errors.append('Gctf version 1.18 does not support local refinement.'
                           ' Please use version 1.06.')
 
@@ -649,7 +649,7 @@ class ProtGctfRefine(ProtParticles):
         return self._getExtraPath(micFnBase + '_local.star')
 
     def _getMicrographs(self):
-            return self.inputMicrographs.get()
+        return self.inputMicrographs.get()
 
     def _getCtfs(self):
         return self.ctfRelations.get() if self.ctfRelations.hasValue() else None

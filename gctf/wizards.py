@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -25,14 +25,14 @@
 # **************************************************************************
 
 from pwem.constants import *
-import pyworkflow.gui.dialog as dialog
 from pwem.wizards import *
 
-from gctf.protocols import ProtGctf, ProtGctfRefine
+from .protocols import ProtGctf, ProtGctfRefine
 
-#===============================================================================
+# =============================================================================
 # CTFs
-#===============================================================================
+# =============================================================================
+
 
 class GctfCTFWizard(CtfWizard):
     _targets = [(ProtGctf, ['ctfDownFactor', 'lowRes', 'highRes']),
@@ -52,7 +52,7 @@ class GctfCTFWizard(CtfWizard):
         _objs = self._getParameters(protocol)['input']
         return CtfWizard._getListProvider(self, _objs)
 
-    def show(self, form):
+    def show(self, form, *args):
         protocol = form.protocol
         params = self._getParameters(protocol)
         _value = params['value']
