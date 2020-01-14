@@ -69,6 +69,3 @@ class Plugin(pwem.Plugin):
         """ Return the program binary that will be used. """
         return os.path.join(cls.getHome('bin'),
                             os.path.basename(cls.getVar(GCTF)))
-
-
-pwem.Domain.registerPlugin(__name__)
