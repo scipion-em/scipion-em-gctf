@@ -27,10 +27,10 @@
 from collections import OrderedDict
 
 import pyworkflow.utils as pwutils
-import pwem.metadata as md
+import pwem.emlib.metadata as md
 import pyworkflow.protocol.params as params
 from pwem.constants import RELATION_CTF
-from pwem.convert import ImageHandler, DT_FLOAT
+from pwem import emlib
 from pwem.protocols import EMProtocol, ProtParticles
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
@@ -422,7 +422,7 @@ class ProtGctfRefine(ProtParticles):
         # We convert the input micrograph on demand if not in .mrc
 
         downFactor = self.ctfDownFactor.get()
-        ih = ImageHandler()
+        ih = emlib.image.ImageHandler()
         micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
         if downFactor != 1:
@@ -432,7 +432,7 @@ class ProtGctfRefine(ProtParticles):
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micFn, micFnMrc, DT_FLOAT)
+            ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         if self.useInputCtf and self.ctfRelations.hasValue():

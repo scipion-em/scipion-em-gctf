@@ -25,7 +25,7 @@
 # **************************************************************************
 
 import pyworkflow.utils as pwutils
-from pwem.convert import ImageHandler, DT_FLOAT
+from pwem import emlib
 from pwem.objects import CTFModel
 from pwem.protocols import ProtCTFMicrographs
 from pyworkflow.utils import *
@@ -65,7 +65,7 @@ class ProtGctf(ProtCTFMicrographs):
                 micPath += ('-%04d' % micList[-1].getObjId())
 
             makePath(micPath)
-            ih = ImageHandler()
+            ih = emlib.image.ImageHandler()
 
             for mic in micList:
                 micFn = mic.getFileName()
@@ -80,7 +80,7 @@ class ProtGctf(ProtCTFMicrographs):
                     sps = self._params['scannedPixelSize'] * downFactor
                     kwargs['scannedPixelSize'] = sps
                 else:
-                    ih.convert(micFn, micFnMrc, DT_FLOAT)
+                    ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
