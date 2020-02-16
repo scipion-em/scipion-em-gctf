@@ -26,11 +26,6 @@
 from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
                             ProtImportCTF)
 
-try:
-    from itertools import izip
-except ImportError:
-    izip = zip
-
 from pyworkflow.tests import *
 
 import gctf
@@ -132,7 +127,7 @@ class TestGctf(TestGctfBase):
         valuesList = [[24028, 23404, 52, 5, 0.3],
                       [22319, 21973, 35, 6, 0.3],
                       [22657, 22362, 56, 5, 0.3]]
-        for ctfModel, values in izip(protCTF.outputCTF, valuesList):
+        for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
@@ -157,7 +152,7 @@ class TestGctf(TestGctfBase):
         valuesList = [[24106, 23218, 49, 5, 0.4],
                       [22226, 21712, 42, 4, 0.4],
                       [22536, 22237, 48, 4, 0.4]]
-        for ctfModel, values in izip(protCTF.outputCTF, valuesList):
+        for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
