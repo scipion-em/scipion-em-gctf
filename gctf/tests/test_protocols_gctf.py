@@ -25,6 +25,7 @@
 # **************************************************************************
 from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
                             ProtImportCTF)
+from pyworkflow.utils import magentaStr
 
 from pyworkflow.tests import *
 
@@ -63,11 +64,8 @@ class TestGctfBase(BaseTest):
                 sphericalAberration=sphericalAberration)
 
         cls.proj.launchProtocol(cls.protImport, wait=True)
-        # check that input micrographs have been imported
-        # (a better way to do this?)
-        if cls.protImport.outputMicrographs is None:
-            raise Exception('Import of micrograph: %s, failed. '
-                            'outputMicrographs is None.' % pattern)
+        cls.assertIsNotNone(cls.protImport.outputMicrographs,
+                            "SetOfMicrographs has not been produced.")
         return cls.protImport
 
     @classmethod
@@ -82,11 +80,8 @@ class TestGctfBase(BaseTest):
                                          importFrom=ProtImportParticles.IMPORT_FROM_SCIPION)
 
         cls.proj.launchProtocol(cls.protImport, wait=True)
-        # check that input particles have been imported
-        # (a better way to do this?)
-        if cls.protImport.outputParticles is None:
-            raise Exception('Import of particles: %s, failed. '
-                            'outputParticles is None.' % pattern)
+        cls.assertIsNotNone(cls.protImport.outputParticles,
+                            "SetOfParticles has not been produced.")
         return cls.protImport
 
     @classmethod
@@ -114,10 +109,12 @@ class TestGctf(TestGctfBase):
     def setUpClass(cls):
         setupTestProject(cls)
         TestGctfBase.setData()
+        print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImport = cls.runImportMicrographBPV(cls.micFn)
 
     def testRunGctf(self):
         protCTF = ProtGctf()
+        print(magentaStr("\n==> Testing gctf - with downsampling:"))
         protCTF.inputMicrographs.set(self.protImport.outputMicrographs)
         protCTF.ctfDownFactor.set(2)
         self.proj.launchProtocol(protCTF, wait=True)
@@ -144,6 +141,7 @@ class TestGctf(TestGctfBase):
 
     def testRunGctf2(self):
         protCTF = ProtGctf()
+        print(magentaStr("\n==> Testing gctf - no downsampling:"))
         protCTF.inputMicrographs.set(self.protImport.outputMicrographs)
         self.proj.launchProtocol(protCTF, wait=True)
         self.assertIsNotNone(protCTF.outputCTF,
@@ -173,10 +171,13 @@ class TestGctfRefine(TestGctfBase):
     def setUpClass(cls):
         setupTestProject(cls)
         TestGctfBase.setData()
+        print(magentaStr("\n==> Importing data - particles (no alignment):"))
         cls.protImport1 = cls.runImportParticlesBPV(cls.partFn1,
                                                     label='import particles (no alignment)')
+        print(magentaStr("\n==> Importing data - particles (with alignment):"))
         cls.protImport2 = cls.runImportParticlesBPV(cls.partFn2,
                                                     label='import particles (with alignment)')
+        print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImportMics = cls.runImportMicrographBPV(cls.micFn)
 
     def testRunGctf1(self):
@@ -184,6 +185,7 @@ class TestGctfRefine(TestGctfBase):
             print('Gctf version 1.18 does not support local refinement.'
                   ' Skipping test..')
         else:
+            print(magentaStr("\n==> Testing gctf - local refinement:"))
             protCTF = ProtGctfRefine(objLabel='gCTF local refinement')
             protCTF.inputParticles.set(self.protImport1.outputParticles)
             protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
@@ -200,6 +202,7 @@ class TestGctfRefine(TestGctfBase):
             print('Gctf version 1.18 does not support local refinement.'
                   ' Skipping test..')
         else:
+            print(magentaStr("\n==> Testing gctf - local refinement (with input CTFs):"))
             protCTF = ProtGctfRefine(objLabel='gCTF local refinement (with input CTFs)')
             protCTF.inputParticles.set(self.protImport2.outputParticles)
             protCTF.ctfDownFactor.set(2)
