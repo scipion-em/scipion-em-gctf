@@ -51,7 +51,7 @@ class Plugin(pwem.Plugin):
         """ Return the environ settings to run Gctf program. """
         environ = pwutils.Environ(os.environ)
         # Take Scipion CUDA library path
-        cudaLib = environ.getFirst((GCTF_CUDA_LIB, CUDA_LIB))
+        cudaLib = environ.get(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
         environ.addLibrary(cudaLib)
         return environ
 

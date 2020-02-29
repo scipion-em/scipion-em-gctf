@@ -24,8 +24,6 @@
 # *
 # **************************************************************************
 
-CUDA_LIB = 'CUDA_LIB'
-
 GCTF = 'GCTF'
 GCTF_HOME = 'GCTF_HOME'
 GCTF_CUDA_LIB = 'GCTF_CUDA_LIB'
