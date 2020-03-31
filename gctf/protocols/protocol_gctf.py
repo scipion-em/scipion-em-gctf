@@ -47,10 +47,9 @@ class ProtGctf(ProtCTFMicrographs):
         self._gctfProgram = ProgramGctf(self)
 
     def _defineParams(self, form):
-        ProtCTFMicrographs._defineParams(self, form)
-        ProgramGctf.defineFormParams(form)
+        ProgramGctf.defineInputParams(form)
+        ProgramGctf.defineProcessParams(form)
         self._defineStreamingParams(form)
-        form.addParallelSection(threads=1, mpi=1)
 
     # -------------------------- STEPS functions ------------------------------
     def _estimateCTF(self, mic, *args):

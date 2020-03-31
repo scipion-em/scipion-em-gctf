@@ -49,9 +49,61 @@ class ProgramGctf:
             self._ext = '.ctf'
 
     @classmethod
-    def defineFormParams(cls, form):
-        """ Define some parameters from this program into the given form. """
-        form.addParam('astigmatism', params.FloatParam, default=100.0,
+    def defineInputParams(cls, form):
+        """ Define input parameters from this program into the given form. """
+        form.addSection(label='Input')
+        form.addParam('recalculate', params.BooleanParam, default=False,
+                      condition='recalculate',
+                      label="Do recalculate ctf?")
+        form.addParam('continueRun', params.PointerParam, allowsNull=True,
+                      condition='recalculate', label="Input previous run",
+                      pointerClass='ProtGctf')
+        form.addHidden('sqliteFile', params.FileParam, condition='recalculate',
+                       allowsNull=True)
+        form.addParam('inputMicrographs', params.PointerParam, important=True,
+                      condition='not recalculate',
+                      label='Input micrographs',
+                      pointerClass='SetOfMicrographs')
+        form.addParam('ctfDownFactor', params.FloatParam, default=1.,
+                      label='CTF Downsampling factor',
+                      help='Set to 1 for no downsampling. Non-integer downsample '
+                           'factors are possible. This downsampling is only used '
+                           'for estimating the CTF and it does not affect any '
+                           'further calculation. Ideally the estimation of the '
+                           'CTF is optimal when the Thon rings are not too '
+                           'concentrated at the origin (too small to be seen) '
+                           'and not occupying the whole power spectrum (since '
+                           'this downsampling might entail aliasing).')
+
+    @classmethod
+    def defineProcessParams(cls, form):
+        form.addParam('windowSize', params.IntParam, default=1024,
+                      label='Box size (px)', condition='not recalculate',
+                      help='Boxsize in pixels to be used for FFT, 512 or '
+                           '1024 highly recommended')
+
+        group = form.addGroup('Search limits')
+        line = group.addLine('Resolution (A)', condition='not recalculate',
+                             help='The CTF model will be fit to regions '
+                                  'of the amplitude spectrum corresponding '
+                                  'to this range of resolution.')
+        line.addParam('lowRes', params.FloatParam, default=50., label='Min')
+        line.addParam('highRes', params.FloatParam, default=4., label='Max')
+
+        line = group.addLine('Defocus search range (A)',
+                             condition='not recalculate',
+                             help='Select _minimum_ and _maximum_ values for '
+                                  'defocus search range (in A). Underfocus'
+                                  ' is represented by a positive number.')
+        line.addParam('minDefocus', params.FloatParam, default=5000.,
+                      label='Min')
+        line.addParam('maxDefocus', params.FloatParam, default=90000.,
+                      label='Max')
+        group.addParam('stepDefocus', params.FloatParam, default=500.,
+                       label='Defocus step (A)',
+                       help='Step size for the defocus search.')
+
+        form.addParam('astigmatism', params.FloatParam, default=1000.0,
                       label='Expected (tolerated) astigmatism',
                       help='Estimated astigmatism in Angstroms',
                       expertLevel=params.LEVEL_ADVANCED)
@@ -211,6 +263,8 @@ class ProgramGctf:
                                'then try new refinement on the micrographs '
                                'which failed.')
 
+        form.addParallelSection(threads=1, mpi=1)
+
     @classmethod
     def getVersion(cls):
         return Plugin.getActiveVersion()
@@ -260,7 +314,11 @@ class ProgramGctf:
         if params['lowRes'] > 50:
             params['lowRes'] = 50
         params['highRes'] = sampling / params['highRes']
-        params['step_focus'] = 500.0
+
+        # defocus is in Angstroms now
+        params['minDefocus'] = protocol.minDefocus.get()
+        params['maxDefocus'] = protocol.maxDefocus.get()
+        params['step_focus'] = protocol.stepDefocus.get()
 
         args = " --apix %(samplingRate)f "
         args += "--kV %(voltage)f "
