@@ -162,17 +162,6 @@ class ProtGctf(ProtCTFMicrographs):
         return [methods]
 
     # -------------------------- UTILS functions ------------------------------
-    def _prepareCommand(self):
-        sampling = self.inputMics.getSamplingRate() * self.ctfDownFactor.get()
-        # Convert digital frequencies to spatial frequencies
-        self._params['sampling'] = sampling
-        self._params['lowRes'] = sampling / self._params['lowRes']
-        if self._params['lowRes'] > 50:
-            self._params['lowRes'] = 50
-        self._params['highRes'] = sampling / self._params['highRes']
-        self._params['step_focus'] = 500.0
-        self._argsGctf()
-
     def _getRecalCtfParamsDict(self, ctfModel):
         values = list(map(float, ctfModel.getObjComment().split()))
         sampling = ctfModel.getMicrograph().getSamplingRate()

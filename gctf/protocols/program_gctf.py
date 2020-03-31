@@ -308,12 +308,8 @@ class ProgramGctf:
         # Update first the _params dict
         params = protocol.getCtfParamsDict()
 
-        # Convert digital frequencies to spatial frequencies
-        sampling = params['samplingRate']
-        params['lowRes'] = sampling / params['lowRes']
         if params['lowRes'] > 50:
             params['lowRes'] = 50
-        params['highRes'] = sampling / params['highRes']
 
         # defocus is in Angstroms now
         params['minDefocus'] = protocol.minDefocus.get()
