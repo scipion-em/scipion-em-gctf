@@ -41,7 +41,7 @@ class GctfImportCTF:
     def importCTF(self, mic, fileName):
         ctf = CTFModel()
         ctf.setMicrograph(mic)
-        readCtfModel(ctf, fileName, ctf4=False)
+        readCtfModel(ctf, fileName)
         
         # Try to find the given PSD file associated with the cttfind log file
         # we handle special cases of .ctf extension and _ctffindX prefix for Relion runs

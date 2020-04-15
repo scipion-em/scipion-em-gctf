@@ -93,7 +93,7 @@ def setWrongDefocus(ctfModel):
     ctfModel.setDefocusAngle(-999)
 
 
-def readCtfModel(ctfModel, filename, ctf4=False):
+def readCtfModel(ctfModel, filename):
     result = parseGctfOutput(filename)
     if result is None:
         setWrongDefocus(ctfModel)

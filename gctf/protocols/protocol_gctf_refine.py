@@ -80,46 +80,37 @@ class ProtGctfRefine(ProtParticles):
                            'concentrated at the origin (too small to be seen) and '
                            'not occupying the whole power spectrum (since this '
                            'downsampling might entail aliasing).')
-        line = form.addLine('Resolution',
-                            help='Give a value in digital frequency (i.e. between '
-                                 '0.0 and 0.5). These cut-offs prevent the typical '
-                                 'peak at the center of the PSD and high-resolution '
-                                 'terms where only noise exists, to interfere with '
-                                 'CTF estimation. The default lowest value is 0.05 '
-                                 'but for micrographs with a very fine sampling this '
-                                 'may be lowered towards 0. The default highest '
-                                 'value is 0.35, but it should be increased for '
-                                 'micrographs with signals extending beyond this '
-                                 'value. However, if your micrographs extend further '
-                                 'than 0.35, you should consider sampling them at a '
-                                 'finer rate.')
-        line.addParam('lowRes', params.FloatParam, default=0.05,
-                      label='Lowest')
-        line.addParam('highRes', params.FloatParam, default=0.35,
-                      label='Highest')
 
-        line = form.addLine('Defocus search range (microns)',
-                            expertLevel=params.LEVEL_ADVANCED,
-                            help='Select _minimum_ and _maximum_ values for '
-                                 'defocus search range (in microns). '
-                                 'Underfocus is represented by a positive '
-                                 'number.')
-        line.addParam('minDefocus', params.FloatParam, default=0.25,
+        form.addParam('windowSize', params.IntParam, default=1024,
+                      label='Box size (px)',
+                      help='Boxsize in pixels to be used for FFT, 512 or '
+                           '1024 highly recommended')
+
+        group = form.addGroup('Search limits')
+        line = group.addLine('Resolution (A)',
+                             help='The CTF model will be fit to regions '
+                                  'of the amplitude spectrum corresponding '
+                                  'to this range of resolution.')
+        line.addParam('lowRes', params.FloatParam, default=50., label='Min')
+        line.addParam('highRes', params.FloatParam, default=4., label='Max')
+
+        line = group.addLine('Defocus search range (A)',
+                             help='Select _minimum_ and _maximum_ values for '
+                                  'defocus search range (in A). Underfocus'
+                                  ' is represented by a positive number.')
+        line.addParam('minDefocus', params.FloatParam, default=5000.,
                       label='Min')
-        line.addParam('maxDefocus', params.FloatParam, default=4.,
+        line.addParam('maxDefocus', params.FloatParam, default=90000.,
                       label='Max')
+        group.addParam('stepDefocus', params.FloatParam, default=500.,
+                       label='Defocus step (A)',
+                       help='Step size for the defocus search.')
 
-        form.addParam('astigmatism', params.FloatParam, default=100.0,
+        form.addParam('astigmatism', params.FloatParam, default=1000.0,
                       label='Expected (tolerated) astigmatism',
                       help='Estimated astigmatism in Angstroms',
                       expertLevel=params.LEVEL_ADVANCED)
-        form.addParam('windowSize', params.IntParam, default=512,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label='Window size',
-                      help='The PSD is estimated from small patches of this '
-                           'size. Bigger patches allow identifying more '
-                           'details. However, since there are fewer windows, '
-                           'estimations are noisier.')
+
         form.addParam('plotResRing', params.BooleanParam, default=True,
                       label='Plot a resolution ring on a PSD file',
                       help='Whether to plot an estimated resolution ring '
@@ -569,20 +560,17 @@ class ProtGctfRefine(ProtParticles):
                         'windowSize': self.windowSize.get(),
                         'lowRes': self.lowRes.get(),
                         'highRes': self.highRes.get(),
-                        # Convert from microns to Angstroms
-                        'minDefocus': self.minDefocus.get() * 1e+4,
-                        'maxDefocus': self.maxDefocus.get() * 1e+4
+                        'minDefocus': self.minDefocus.get(),
+                        'maxDefocus': self.maxDefocus.get()
                         }
 
     def _prepareCommand(self):
         sampling = self._getMicrographs().getSamplingRate() * self.ctfDownFactor.get()
-        # Convert digital frequencies to spatial frequencies
         self._params['sampling'] = sampling
-        self._params['lowRes'] = sampling / self._params['lowRes']
         if self._params['lowRes'] > 50:
             self._params['lowRes'] = 50
-        self._params['highRes'] = sampling / self._params['highRes']
-        self._params['step_focus'] = 500.0
+        self._params['step_focus'] = self.stepDefocus.get()
+
         self._argsGctf()
 
     def _argsGctf(self):
