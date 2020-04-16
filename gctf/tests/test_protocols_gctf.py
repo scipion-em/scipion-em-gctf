@@ -121,23 +121,17 @@ class TestGctf(TestGctfBase):
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[24028, 23404, 52, 5, 0.3],
-                      [22319, 21973, 35, 6, 0.3],
-                      [22657, 22362, 56, 5, 0.3]]
+        valuesList = [[23918, 23521],
+                      [22277, 21972],
+                      [22464, 22488]]
         for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=20)
-            self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 2.474, delta=0.001)
-            self.assertAlmostEquals(
-                ctfModel.getResolution(), values[3], delta=1)
-            self.assertAlmostEquals(
-                ctfModel.getFitQuality(), values[4], delta=.1)
 
     def testRunGctf2(self):
         protCTF = ProtGctf()
@@ -147,23 +141,17 @@ class TestGctf(TestGctfBase):
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[24106, 23218, 49, 5, 0.4],
-                      [22226, 21712, 42, 4, 0.4],
-                      [22536, 22237, 48, 4, 0.4]]
+        valuesList = [[23887, 23538],
+                      [22281, 21925],
+                      [22453, 22383]]
         for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=20)
-            self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 1.237, delta=0.001)
-            self.assertAlmostEquals(
-                ctfModel.getResolution(), values[3], delta=1)
-            self.assertAlmostEquals(
-                ctfModel.getFitQuality(), values[4], delta=.1)
 
 
 class TestGctfRefine(TestGctfBase):

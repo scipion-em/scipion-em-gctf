@@ -1,4 +1,7 @@
-1.0.8 - Migrating to python3
+1.0.8:
+    - Migrating to python3
+    - Add gctf protocol for tilt series
+    - Default binary is for CUDA 8.0, GTX 1080 GPU
 1.0.7 - switch to 1.18 by default
 1.0.6 - fix few parameters formatting
 1.0.5:
