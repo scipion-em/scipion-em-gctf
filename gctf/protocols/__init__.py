@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,6 +24,12 @@
 # *
 # **************************************************************************
 
-from protocol_gctf import ProtGctf
-from protocol_gctf_refine import ProtGctfRefine
+from .protocol_gctf import ProtGctf
+from .protocol_gctf_refine import ProtGctfRefine
 
+try:
+    from .protocol_ts_gctf import ProtTsGctf
+except ImportError:
+    raise ImportError(
+        'To use a Tomography protocol scipion-em-tomo plugin is required.'
+        ' See https://github.com/scipion-em/scipion-em-tomo for further details')

@@ -1,12 +1,12 @@
 # **************************************************************************
 # *
-# * Authors:    Grigory Sharov (sharov@igbmc.fr)
+# * Authors:    Grigory Sharov (gsharov@mrc-lmb.cam.ac.uk)
 # *
 # * MRC Laboratory of Molecular Biology (MRC-LMB)
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,9 +23,10 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from itertools import izip
+from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
+                            ProtImportCTF)
+from pyworkflow.utils import magentaStr
 
-from pyworkflow.em import *
 from pyworkflow.tests import *
 
 import gctf
@@ -63,11 +64,8 @@ class TestGctfBase(BaseTest):
                 sphericalAberration=sphericalAberration)
 
         cls.proj.launchProtocol(cls.protImport, wait=True)
-        # check that input micrographs have been imported
-        # (a better way to do this?)
-        if cls.protImport.outputMicrographs is None:
-            raise Exception('Import of micrograph: %s, failed. '
-                            'outputMicrographs is None.' % pattern)
+        cls.assertIsNotNone(cls.protImport.outputMicrographs,
+                            "SetOfMicrographs has not been produced.")
         return cls.protImport
 
     @classmethod
@@ -82,11 +80,8 @@ class TestGctfBase(BaseTest):
                                          importFrom=ProtImportParticles.IMPORT_FROM_SCIPION)
 
         cls.proj.launchProtocol(cls.protImport, wait=True)
-        # check that input particles have been imported
-        # (a better way to do this?)
-        if cls.protImport.outputParticles is None:
-            raise Exception('Import of particles: %s, failed. '
-                            'outputParticles is None.' % pattern)
+        cls.assertIsNotNone(cls.protImport.outputParticles,
+                            "SetOfParticles has not been produced.")
         return cls.protImport
 
     @classmethod
@@ -114,58 +109,49 @@ class TestGctf(TestGctfBase):
     def setUpClass(cls):
         setupTestProject(cls)
         TestGctfBase.setData()
+        print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImport = cls.runImportMicrographBPV(cls.micFn)
 
     def testRunGctf(self):
         protCTF = ProtGctf()
+        print(magentaStr("\n==> Testing gctf - with downsampling:"))
         protCTF.inputMicrographs.set(self.protImport.outputMicrographs)
         protCTF.ctfDownFactor.set(2)
         self.proj.launchProtocol(protCTF, wait=True)
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[24028, 23404, 52, 5, 0.3],
-                      [22319, 21973, 35, 6, 0.3],
-                      [22657, 22362, 56, 5, 0.3]]
-        for ctfModel, values in izip(protCTF.outputCTF, valuesList):
+        valuesList = [[23918, 23521],
+                      [22277, 21972],
+                      [22464, 22488]]
+        for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=20)
-            self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 2.474, delta=0.001)
-            self.assertAlmostEquals(
-                ctfModel.getResolution(), values[3], delta=1)
-            self.assertAlmostEquals(
-                ctfModel.getFitQuality(), values[4], delta=.1)
 
     def testRunGctf2(self):
         protCTF = ProtGctf()
+        print(magentaStr("\n==> Testing gctf - no downsampling:"))
         protCTF.inputMicrographs.set(self.protImport.outputMicrographs)
         self.proj.launchProtocol(protCTF, wait=True)
         self.assertIsNotNone(protCTF.outputCTF,
                              "SetOfCTF has not been produced.")
 
-        valuesList = [[24106, 23218, 49, 5, 0.4],
-                      [22226, 21712, 42, 4, 0.4],
-                      [22536, 22237, 48, 4, 0.4]]
-        for ctfModel, values in izip(protCTF.outputCTF, valuesList):
+        valuesList = [[23887, 23538],
+                      [22281, 21925],
+                      [22453, 22383]]
+        for ctfModel, values in zip(protCTF.outputCTF, valuesList):
             self.assertAlmostEquals(
                 ctfModel.getDefocusU(), values[0], delta=1000)
             self.assertAlmostEquals(
                 ctfModel.getDefocusV(), values[1], delta=1000)
             self.assertAlmostEquals(
-                ctfModel.getDefocusAngle(), values[2], delta=20)
-            self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 1.237, delta=0.001)
-            self.assertAlmostEquals(
-                ctfModel.getResolution(), values[3], delta=1)
-            self.assertAlmostEquals(
-                ctfModel.getFitQuality(), values[4], delta=.1)
 
 
 class TestGctfRefine(TestGctfBase):
@@ -173,10 +159,13 @@ class TestGctfRefine(TestGctfBase):
     def setUpClass(cls):
         setupTestProject(cls)
         TestGctfBase.setData()
+        print(magentaStr("\n==> Importing data - particles (no alignment):"))
         cls.protImport1 = cls.runImportParticlesBPV(cls.partFn1,
                                                     label='import particles (no alignment)')
+        print(magentaStr("\n==> Importing data - particles (with alignment):"))
         cls.protImport2 = cls.runImportParticlesBPV(cls.partFn2,
                                                     label='import particles (with alignment)')
+        print(magentaStr("\n==> Importing data - micrographs:"))
         cls.protImportMics = cls.runImportMicrographBPV(cls.micFn)
 
     def testRunGctf1(self):
@@ -184,6 +173,7 @@ class TestGctfRefine(TestGctfBase):
             print('Gctf version 1.18 does not support local refinement.'
                   ' Skipping test..')
         else:
+            print(magentaStr("\n==> Testing gctf - local refinement:"))
             protCTF = ProtGctfRefine(objLabel='gCTF local refinement')
             protCTF.inputParticles.set(self.protImport1.outputParticles)
             protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
@@ -200,6 +190,7 @@ class TestGctfRefine(TestGctfBase):
             print('Gctf version 1.18 does not support local refinement.'
                   ' Skipping test..')
         else:
+            print(magentaStr("\n==> Testing gctf - local refinement (with input CTFs):"))
             protCTF = ProtGctfRefine(objLabel='gCTF local refinement (with input CTFs)')
             protCTF.inputParticles.set(self.protImport2.outputParticles)
             protCTF.ctfDownFactor.set(2)

@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -27,19 +27,19 @@
 from collections import OrderedDict
 
 import pyworkflow.utils as pwutils
-import pyworkflow.em as em
-import pyworkflow.em.metadata as md
+import pwem.emlib.metadata as md
 import pyworkflow.protocol.params as params
-from pyworkflow.em.constants import RELATION_CTF
-from pyworkflow.em.protocol import EMProtocol
+from pwem.constants import RELATION_CTF
+from pwem import emlib
+from pwem.protocols import EMProtocol, ProtParticles
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 
-import gctf
-from gctf.convert import CoordinatesWriter, rowToCtfModel, getShifts
-from gctf.constants import *
+from .. import Plugin
+from ..convert import CoordinatesWriter, rowToCtfModel, getShifts
+from ..constants import *
 
 
-class ProtGctfRefine(em.ProtParticles):
+class ProtGctfRefine(ProtParticles):
     """
     Refines local CTF of a set of particles using Gctf.
 
@@ -80,46 +80,37 @@ class ProtGctfRefine(em.ProtParticles):
                            'concentrated at the origin (too small to be seen) and '
                            'not occupying the whole power spectrum (since this '
                            'downsampling might entail aliasing).')
-        line = form.addLine('Resolution',
-                            help='Give a value in digital frequency (i.e. between '
-                                 '0.0 and 0.5). These cut-offs prevent the typical '
-                                 'peak at the center of the PSD and high-resolution '
-                                 'terms where only noise exists, to interfere with '
-                                 'CTF estimation. The default lowest value is 0.05 '
-                                 'but for micrographs with a very fine sampling this '
-                                 'may be lowered towards 0. The default highest '
-                                 'value is 0.35, but it should be increased for '
-                                 'micrographs with signals extending beyond this '
-                                 'value. However, if your micrographs extend further '
-                                 'than 0.35, you should consider sampling them at a '
-                                 'finer rate.')
-        line.addParam('lowRes', params.FloatParam, default=0.05,
-                      label='Lowest')
-        line.addParam('highRes', params.FloatParam, default=0.35,
-                      label='Highest')
 
-        line = form.addLine('Defocus search range (microns)',
-                            expertLevel=params.LEVEL_ADVANCED,
-                            help='Select _minimum_ and _maximum_ values for '
-                                 'defocus search range (in microns). '
-                                 'Underfocus is represented by a positive '
-                                 'number.')
-        line.addParam('minDefocus', params.FloatParam, default=0.25,
+        form.addParam('windowSize', params.IntParam, default=1024,
+                      label='Box size (px)',
+                      help='Boxsize in pixels to be used for FFT, 512 or '
+                           '1024 highly recommended')
+
+        group = form.addGroup('Search limits')
+        line = group.addLine('Resolution (A)',
+                             help='The CTF model will be fit to regions '
+                                  'of the amplitude spectrum corresponding '
+                                  'to this range of resolution.')
+        line.addParam('lowRes', params.FloatParam, default=50., label='Min')
+        line.addParam('highRes', params.FloatParam, default=4., label='Max')
+
+        line = group.addLine('Defocus search range (A)',
+                             help='Select _minimum_ and _maximum_ values for '
+                                  'defocus search range (in A). Underfocus'
+                                  ' is represented by a positive number.')
+        line.addParam('minDefocus', params.FloatParam, default=5000.,
                       label='Min')
-        line.addParam('maxDefocus', params.FloatParam, default=4.,
+        line.addParam('maxDefocus', params.FloatParam, default=90000.,
                       label='Max')
+        group.addParam('stepDefocus', params.FloatParam, default=500.,
+                       label='Defocus step (A)',
+                       help='Step size for the defocus search.')
 
-        form.addParam('astigmatism', params.FloatParam, default=100.0,
+        form.addParam('astigmatism', params.FloatParam, default=1000.0,
                       label='Expected (tolerated) astigmatism',
                       help='Estimated astigmatism in Angstroms',
                       expertLevel=params.LEVEL_ADVANCED)
-        form.addParam('windowSize', params.IntParam, default=512,
-                      expertLevel=params.LEVEL_ADVANCED,
-                      label='Window size',
-                      help='The PSD is estimated from small patches of this '
-                           'size. Bigger patches allow identifying more '
-                           'details. However, since there are fewer windows, '
-                           'estimations are noisier.')
+
         form.addParam('plotResRing', params.BooleanParam, default=True,
                       label='Plot a resolution ring on a PSD file',
                       help='Whether to plot an estimated resolution ring '
@@ -338,7 +329,7 @@ class ProtGctfRefine(em.ProtParticles):
         lastMicId = None
         # TODO: If this loop is too expensive for very large input datasets,
         # we could consider using the aggregate functions in the mapper
-        for particle in inputParticles.iterItems('_micId'):
+        for particle in inputParticles.iterItems(orderBy='_micId'):
             micId = particle.getMicId()
             if micId != lastMicId:  # Do no repeat check when this is the same mic
                 micName = particle.getCoordinate().getMicName()
@@ -354,7 +345,7 @@ class ProtGctfRefine(em.ProtParticles):
         convIdDeps = [self._insertFunctionStep('convertInputStep')]
         refineDeps = []
 
-        for micName, mic in self.micDict.iteritems():
+        for micName, mic in self.micDict.items():
             stepId = self._insertFunctionStep('refineCtfStep', mic.getFileName(), micName,
                                               prerequisites=convIdDeps)
             refineDeps.append(stepId)
@@ -392,7 +383,7 @@ class ProtGctfRefine(em.ProtParticles):
         scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
         doScale = abs(scale - 1.0 > 0.00001)
         if doScale:
-            print "Scaling coordinates by a factor *%0.2f*" % scale
+            print("Scaling coordinates by a factor *%0.2f*" % scale)
 
         self._lastWriter = None
         coordDir = self._getTmpPath()
@@ -422,7 +413,7 @@ class ProtGctfRefine(em.ProtParticles):
         # We convert the input micrograph on demand if not in .mrc
 
         downFactor = self.ctfDownFactor.get()
-        ih = em.ImageHandler()
+        ih = emlib.image.ImageHandler()
         micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
         if downFactor != 1:
@@ -432,7 +423,7 @@ class ProtGctfRefine(em.ProtParticles):
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micFn, micFnMrc, em.DT_FLOAT)
+            ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         if self.useInputCtf and self.ctfRelations.hasValue():
@@ -464,8 +455,8 @@ class ProtGctfRefine(em.ProtParticles):
         try:
             args = self._args % self._params
             args += ' %s' % micFnMrc
-            self.runJob(gctf.Plugin.getProgram(), args,
-                        env=gctf.Plugin.getEnviron())
+            self.runJob(Plugin.getProgram(), args,
+                        env=Plugin.getEnviron())
 
             # Let's clean the temporary mrc micrograph
             pwutils.cleanPath(micFnMrc)
@@ -521,7 +512,7 @@ class ProtGctfRefine(em.ProtParticles):
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
-        if gctf.Plugin.getActiveVersion() in ['1.18']:
+        if Plugin.getActiveVersion() in ['1.18']:
             errors.append('Gctf version 1.18 does not support local refinement.'
                           ' Please use version 1.06.')
 
@@ -569,20 +560,17 @@ class ProtGctfRefine(em.ProtParticles):
                         'windowSize': self.windowSize.get(),
                         'lowRes': self.lowRes.get(),
                         'highRes': self.highRes.get(),
-                        # Convert from microns to Angstroms
-                        'minDefocus': self.minDefocus.get() * 1e+4,
-                        'maxDefocus': self.maxDefocus.get() * 1e+4
+                        'minDefocus': self.minDefocus.get(),
+                        'maxDefocus': self.maxDefocus.get()
                         }
 
     def _prepareCommand(self):
         sampling = self._getMicrographs().getSamplingRate() * self.ctfDownFactor.get()
-        # Convert digital frequencies to spatial frequencies
         self._params['sampling'] = sampling
-        self._params['lowRes'] = sampling / self._params['lowRes']
         if self._params['lowRes'] > 50:
             self._params['lowRes'] = 50
-        self._params['highRes'] = sampling / self._params['highRes']
-        self._params['step_focus'] = 500.0
+        self._params['step_focus'] = self.stepDefocus.get()
+
         self._argsGctf()
 
     def _argsGctf(self):
@@ -649,7 +637,7 @@ class ProtGctfRefine(em.ProtParticles):
         return self._getExtraPath(micFnBase + '_local.star')
 
     def _getMicrographs(self):
-            return self.inputMicrographs.get()
+        return self.inputMicrographs.get()
 
     def _getCtfs(self):
         return self.ctfRelations.get() if self.ctfRelations.hasValue() else None
