@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -24,35 +24,33 @@
 # *
 # **************************************************************************
 
+
 from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
-from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
-from pyworkflow.em.viewers import EmPlotter, CtfView
-import pyworkflow.em.viewers.showj as showj
+from pyworkflow.viewer import Viewer, DESKTOP_TKINTER
+from pwem.viewers import EmPlotter, CtfView, showj
 
-import gctf
-from gctf.protocols import ProtGctf
+from . import Plugin
+from .protocols import ProtGctf
 
 
 def createCtfPlot(ctfSet, ctfId):
     ctfModel = ctfSet[ctfId]
     psdFn = ctfModel.getPsdFile()
     fn = pwutils.removeExt(psdFn) + "_EPA.log"
-    gridsize = [1, 1]
-    xplotter = EmPlotter(x=gridsize[0], y=gridsize[1],
-                         windowTitle='CTF Fitting')
+    xplotter = EmPlotter(windowTitle='CTF Fitting')
     plot_title = "CTF Fitting"
     a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF',
                                yformat=False)
     a.invert_xaxis()
-    version = gctf.Plugin.getActiveVersion()
+    version = Plugin.getActiveVersion()
     curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]
 
     for i in curves:
         _plotCurve(a, i, fn)
     xplotter.showLegend(['simulated CTF',
-                         #'equiphase avg.',
-                         #'bg', #  only for v1.18
+                         # 'equiphase avg.',
+                         # 'bg', #  only for v1.18
                          'equiphase avg. - bg',
                          'cross correlation'])
     a.grid(True)
@@ -71,20 +69,17 @@ def _plotCurve(a, i, fn):
 
 
 def _getValues(fn, col):
-    f = open(fn)
-    values = []
-    for line in f:
-        if not line.startswith('Resolution', 2, 12):
-            column = line.split()
-            value = float(column[col])
-            values.append(value)
-    f.close()
+    values = list()
+    with open(fn) as f:
+        for line in f:
+            if not line.startswith('Resolution', 2, 12):
+                values.append(float(line.split()[col]))
     return values
 
 
 class GctfViewer(Viewer):
     """ Visualization of Gctf results. """
-    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+    _environments = [DESKTOP_TKINTER]
     _targets = [ProtGctf]
 
     def _visualize(self, prot, **kwargs):

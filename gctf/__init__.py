@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -26,7 +26,7 @@
 
 import os
 
-import pyworkflow.em
+import pwem
 import pyworkflow.utils as pwutils
 
 from .constants import *
@@ -36,7 +36,7 @@ _logo = "gctf_logo.png"
 _references = ['Zhang2016']
 
 
-class Plugin(pyworkflow.em.Plugin):
+class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
     _supportedVersions = ['1.06', '1.18']
@@ -44,14 +44,14 @@ class Plugin(pyworkflow.em.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(GCTF_HOME, 'gctf-1.18')
-        cls._defineVar(GCTF, 'Gctf_v1.18_b2_sm60_cu8.0')
+        cls._defineVar(GCTF, 'Gctf_v1.18_b2_sm61_cu8.0')
 
     @classmethod
     def getEnviron(cls):
         """ Return the environ settings to run Gctf program. """
         environ = pwutils.Environ(os.environ)
         # Take Scipion CUDA library path
-        cudaLib = environ.getFirst((GCTF_CUDA_LIB, CUDA_LIB))
+        cudaLib = environ.get(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
         environ.addLibrary(cudaLib)
         return environ
 
@@ -69,6 +69,3 @@ class Plugin(pyworkflow.em.Plugin):
         """ Return the program binary that will be used. """
         return os.path.join(cls.getHome('bin'),
                             os.path.basename(cls.getVar(GCTF)))
-
-
-pyworkflow.em.Domain.registerPlugin(__name__)

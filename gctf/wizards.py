@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -23,19 +23,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-"""
-This module implement some wizards
-"""
 
-from pyworkflow.em.constants import *
-import pyworkflow.gui.dialog as dialog
-from pyworkflow.em.wizard import *
+from pwem.constants import *
+from pwem.wizards import *
 
-from gctf.protocols import ProtGctf, ProtGctfRefine
+from .protocols import ProtGctf, ProtGctfRefine
 
-#===============================================================================
+# =============================================================================
 # CTFs
-#===============================================================================
+# =============================================================================
+
 
 class GctfCTFWizard(CtfWizard):
     _targets = [(ProtGctf, ['ctfDownFactor', 'lowRes', 'highRes']),
@@ -45,17 +42,17 @@ class GctfCTFWizard(CtfWizard):
         
         label, value = self._getInputProtocol(self._targets, protocol)
         
-        protParams = {}
-        protParams['input']= protocol.inputMicrographs
-        protParams['label']= label
-        protParams['value']= value
+        protParams = dict()
+        protParams['input'] = protocol.inputMicrographs
+        protParams['label'] = label
+        protParams['value'] = value
         return protParams
     
     def _getProvider(self, protocol):
         _objs = self._getParameters(protocol)['input']
         return CtfWizard._getListProvider(self, _objs)
 
-    def show(self, form):
+    def show(self, form, *args):
         protocol = form.protocol
         params = self._getParameters(protocol)
         _value = params['value']
@@ -80,5 +77,5 @@ class GctfCTFWizard(CtfWizard):
             dialog.showWarning("Empty input", "Select elements first", form.root)    
     
     @classmethod    
-    def getView(self):
+    def getView(cls):
         return "wiz_ctf_downsampling"  

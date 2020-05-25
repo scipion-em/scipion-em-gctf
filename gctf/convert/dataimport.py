@@ -6,7 +6,7 @@
 # *
 # * This program is free software; you can redistribute it and/or modify
 # * it under the terms of the GNU General Public License as published by
-# * the Free Software Foundation; either version 2 of the License, or
+# * the Free Software Foundation; either version 3 of the License, or
 # * (at your option) any later version.
 # *
 # * This program is distributed in the hope that it will be useful,
@@ -27,12 +27,12 @@
 import os
 
 import pyworkflow.utils as pwutils 
-from pyworkflow.em.data import CTFModel
+from pwem.objects import CTFModel
 
 from .convert import readCtfModel
 
 
-class GctfImportCTF():
+class GctfImportCTF:
     """ Import CTF estimated with GCTF. """
     def __init__(self, protocol):
         self.protocol = protocol
@@ -41,7 +41,7 @@ class GctfImportCTF():
     def importCTF(self, mic, fileName):
         ctf = CTFModel()
         ctf.setMicrograph(mic)
-        readCtfModel(ctf, fileName, ctf4=False)
+        readCtfModel(ctf, fileName)
         
         # Try to find the given PSD file associated with the cttfind log file
         # we handle special cases of .ctf extension and _ctffindX prefix for Relion runs
@@ -51,7 +51,7 @@ class GctfImportCTF():
                            fnBase.replace('_ctffind3', ''),
                            fnBase.replace('_gctf', '')]
             for prefix in psdPrefixes:
-                psdFile =  prefix + suffix
+                psdFile = prefix + suffix
                 if os.path.exists(psdFile):
                     if psdFile.endswith('.ctf'):
                         psdFile += ':mrc'
