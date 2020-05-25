@@ -52,7 +52,7 @@ class GctfCTFWizard(CtfWizard):
         _objs = self._getParameters(protocol)['input']
         return CtfWizard._getListProvider(self, _objs)
 
-    def show(self, form, *args):
+    def show(self, form):
         protocol = form.protocol
         params = self._getParameters(protocol)
         _value = params['value']
