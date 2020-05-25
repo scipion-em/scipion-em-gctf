@@ -24,11 +24,10 @@
 # *
 # **************************************************************************
 
-from io import open
 
 from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
-from pyworkflow.viewer import Viewer, DESKTOP_TKINTER, WEB_DJANGO
+from pyworkflow.viewer import Viewer, DESKTOP_TKINTER
 from pwem.viewers import EmPlotter, CtfView, showj
 
 from . import Plugin
@@ -39,9 +38,7 @@ def createCtfPlot(ctfSet, ctfId):
     ctfModel = ctfSet[ctfId]
     psdFn = ctfModel.getPsdFile()
     fn = pwutils.removeExt(psdFn) + "_EPA.log"
-    gridsize = [1, 1]
-    xplotter = EmPlotter(x=gridsize[0], y=gridsize[1],
-                         windowTitle='CTF Fitting')
+    xplotter = EmPlotter(windowTitle='CTF Fitting')
     plot_title = "CTF Fitting"
     a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF',
                                yformat=False)
@@ -72,20 +69,17 @@ def _plotCurve(a, i, fn):
 
 
 def _getValues(fn, col):
-    f = open(fn)
-    values = []
-    for line in f:
-        if not line.startswith('Resolution', 2, 12):
-            column = line.split()
-            value = float(column[col])
-            values.append(value)
-    f.close()
+    values = list()
+    with open(fn) as f:
+        for line in f:
+            if not line.startswith('Resolution', 2, 12):
+                values.append(float(line.split()[col]))
     return values
 
 
 class GctfViewer(Viewer):
     """ Visualization of Gctf results. """
-    _environments = [DESKTOP_TKINTER, WEB_DJANGO]
+    _environments = [DESKTOP_TKINTER]
     _targets = [ProtGctf]
 
     def _visualize(self, prot, **kwargs):

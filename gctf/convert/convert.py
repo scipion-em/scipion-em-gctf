@@ -28,7 +28,6 @@ This module contains converter functions that will serve to:
 1. Write from base classes to Gctf specific files
 2. Read from Gctf files to base classes
 """
-from io import open
 import os
 import re
 import numpy
