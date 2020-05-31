@@ -1,3 +1,5 @@
+1.0.9:
+    - binaries updated
 1.0.8:
     - Migrating to python3
     - Add gctf protocol for tilt series

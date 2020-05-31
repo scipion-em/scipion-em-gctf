@@ -44,7 +44,7 @@ class Plugin(pwem.Plugin):
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(GCTF_HOME, 'gctf-1.18')
-        cls._defineVar(GCTF, 'Gctf_v1.18_b2_sm61_cu8.0')
+        cls._defineVar(GCTF, 'Gctf_v1.18_sm30-75_cu10.1')
 
     @classmethod
     def getEnviron(cls):
