@@ -2,7 +2,7 @@
 Gctf plugin
 ===========
 
-This plugin provide wrappers around `Gctf <https://www.mrc-lmb.cam.ac.uk/kzhang/>`_ program.
+This plugin provide wrappers around `Gctf <https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/>`_ program.
 
 +--------------+----------------+--------------------+
 | prod: |prod| | devel: |devel| | support: |support| |
