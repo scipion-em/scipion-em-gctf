@@ -24,14 +24,10 @@
 # *
 # **************************************************************************
 
-from pwem.constants import *
-from pwem.wizards import *
+from pwem.constants import UNIT_ANGSTROM
+from pwem.wizards import CtfWizard, CtfDownsampleDialog, dialog
 
 from .protocols import ProtGctf, ProtGctfRefine
-
-# =============================================================================
-# CTFs
-# =============================================================================
 
 
 class GctfCTFWizard(CtfWizard):
@@ -71,8 +67,10 @@ class GctfCTFWizard(CtfWizard):
 
             if d.resultYes():
                 form.setVar(_label[0], d.getDownsample())
-                form.setVar(_label[1], _sampling / d.getLowFreq())
-                form.setVar(_label[2], _sampling / d.getHighFreq())
+                form.setVar(_label[1],
+                            "%0.2f" % (_sampling / d.getLowFreq() * d.getDownsample()))
+                form.setVar(_label[2],
+                            "%0.2f" % (_sampling / d.getHighFreq() * d.getDownsample()))
         else:
             dialog.showWarning("Empty input", "Select elements first", form.root)
     
