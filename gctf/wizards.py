@@ -24,14 +24,10 @@
 # *
 # **************************************************************************
 
-from pwem.constants import *
-from pwem.wizards import *
+from pwem.constants import UNIT_ANGSTROM
+from pwem.wizards import CtfWizard, CtfDownsampleDialog, dialog
 
 from .protocols import ProtGctf, ProtGctfRefine
-
-# =============================================================================
-# CTFs
-# =============================================================================
 
 
 class GctfCTFWizard(CtfWizard):
@@ -39,13 +35,12 @@ class GctfCTFWizard(CtfWizard):
                 (ProtGctfRefine, ['ctfDownFactor', 'lowRes', 'highRes'])]
     
     def _getParameters(self, protocol):
-        
         label, value = self._getInputProtocol(self._targets, protocol)
-        
         protParams = dict()
         protParams['input'] = protocol.inputMicrographs
         protParams['label'] = label
         protParams['value'] = value
+        protParams['sampling'] = protocol.inputMicrographs.get().getSamplingRate()
         return protParams
     
     def _getProvider(self, protocol):
@@ -57,24 +52,27 @@ class GctfCTFWizard(CtfWizard):
         params = self._getParameters(protocol)
         _value = params['value']
         _label = params['label']
+        _sampling = params['sampling']
 
         provider = self._getProvider(protocol)
         
         if provider is not None:
-            args = {'unit': UNIT_PIXEL,
+            args = {'unit': UNIT_ANGSTROM,
                     'downsample': _value[0],
-                    'lf': _value[1],
-                    'hf': _value[2],
+                    'lf': _sampling / _value[1],
+                    'hf': _sampling / _value[2],
                     'showInAngstroms': True
                     }
             d = CtfDownsampleDialog(form.root, provider, **args)
 
             if d.resultYes():
                 form.setVar(_label[0], d.getDownsample())
-                form.setVar(_label[1], d.getLowFreq())
-                form.setVar(_label[2], d.getHighFreq())
+                form.setVar(_label[1],
+                            "%0.2f" % (_sampling / d.getLowFreq() * d.getDownsample()))
+                form.setVar(_label[2],
+                            "%0.2f" % (_sampling / d.getHighFreq() * d.getDownsample()))
         else:
-            dialog.showWarning("Empty input", "Select elements first", form.root)    
+            dialog.showWarning("Empty input", "Select elements first", form.root)
     
     @classmethod    
     def getView(cls):

@@ -38,7 +38,7 @@ class ProtGctf(ProtCTFMicrographs):
     """ Estimates CTF on a set of micrographs using Gctf.
 
     To find more information about Gctf go to:
-    http://www.mrc-lmb.cam.ac.uk/kzhang
+    https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/#gctf
     """
     _label = 'ctf estimation'
 

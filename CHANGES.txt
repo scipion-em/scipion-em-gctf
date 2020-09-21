@@ -1,3 +1,4 @@
+3.0.10 - fix wizard values, update README
 3.0.9 - changed version to reflect Scipion 3 support
 1.0.9:
     - binaries updated
