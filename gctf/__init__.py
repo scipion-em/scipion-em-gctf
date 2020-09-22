@@ -34,6 +34,7 @@ from .constants import *
 
 _logo = "gctf_logo.png"
 _references = ['Zhang2016']
+_url = "https://github.com/scipion-em/scipion-em-gctf"
 
 
 class Plugin(pwem.Plugin):
