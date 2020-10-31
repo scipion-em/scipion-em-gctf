@@ -32,26 +32,28 @@ import pyworkflow.utils as pwutils
 from .constants import *
 
 
+__version__ = '3.0.10'
 _logo = "gctf_logo.png"
 _references = ['Zhang2016']
-_url = "https://github.com/scipion-em/scipion-em-gctf"
 
 
 class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
     _supportedVersions = ['1.06', '1.18']
+    _url = "https://github.com/scipion-em/scipion-em-gctf"
 
     @classmethod
     def _defineVariables(cls):
         cls._defineEmVar(GCTF_HOME, 'gctf-1.18')
         cls._defineVar(GCTF, 'Gctf_v1.18_sm30-75_cu10.1')
+        cls._defineVar(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
 
     @classmethod
     def getEnviron(cls):
         """ Return the environ settings to run Gctf program. """
         environ = pwutils.Environ(os.environ)
-        # Take Scipion CUDA library path
+        # Get Gctf CUDA library path if defined
         cudaLib = environ.get(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
         environ.addLibrary(cudaLib)
         return environ
