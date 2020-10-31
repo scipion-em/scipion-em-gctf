@@ -4,6 +4,27 @@ Gctf plugin
 
 This plugin provide wrappers around `Gctf <https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/>`_ program.
 
+.. image:: https://img.shields.io/pypi/v/scipion-em-gctf.svg
+        :target: https://pypi.python.org/pypi/scipion-em-gctf
+        :alt: PyPI release
+
+.. image:: https://img.shields.io/pypi/l/scipion-em-gctf.svg
+        :target: https://pypi.python.org/pypi/scipion-em-gctf
+        :alt: License
+
+.. image:: https://img.shields.io/pypi/pyversions/scipion-em-gctf.svg
+        :target: https://pypi.python.org/pypi/scipion-em-gctf
+        :alt: Supported Python versions
+
+.. image:: https://img.shields.io/sonar/quality_gate/scipion-em_scipion-em-gctf?server=https%3A%2F%2Fsonarcloud.io
+        :target: https://sonarcloud.io/dashboard?id=scipion-em_scipion-em-gctf
+        :alt: SonarCloud quality gate
+
+.. image:: https://img.shields.io/pypi/dm/scipion-em-gctf
+        :target: https://pypi.python.org/pypi/scipion-em-gctf
+        :alt: Downloads
+
+
 +--------------+----------------+--------------------+
 | prod: |prod| | devel: |devel| | support: |support| |
 +--------------+----------------+--------------------+
