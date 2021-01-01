@@ -24,7 +24,6 @@
 # *
 # **************************************************************************
 
-
 from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER
@@ -40,8 +39,7 @@ def createCtfPlot(ctfSet, ctfId):
     fn = pwutils.removeExt(psdFn) + "_EPA.log"
     xplotter = EmPlotter(windowTitle='CTF Fitting')
     plot_title = "CTF Fitting"
-    a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF',
-                               yformat=False)
+    a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF')
     a.invert_xaxis()
     version = Plugin.getActiveVersion()
     curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]

@@ -24,11 +24,12 @@
 # *
 # **************************************************************************
 
+import os
+
 import pyworkflow.utils as pwutils
 from pwem import emlib
 from pwem.objects import CTFModel
 from pwem.protocols import ProtCTFMicrographs
-from pyworkflow.utils import *
 
 
 from .program_gctf import ProgramGctf
@@ -63,7 +64,7 @@ class ProtGctf(ProtCTFMicrographs):
             if len(micList) > 1:
                 micPath += ('-%04d' % micList[-1].getObjId())
 
-            makePath(micPath)
+            pwutils.makePath(micPath)
             ih = emlib.image.ImageHandler()
 
             for mic in micList:
@@ -93,7 +94,7 @@ class ProtGctf(ProtCTFMicrographs):
                 micBase = pwutils.removeBaseExt(micFn)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
-                cleanPath(micFnMrc)
+                pwutils.cleanPath(micFnMrc)
 
                 # move output from tmp to extra
                 micFnCtf = _getFile(micBase, self._gctfProgram.getExt())
@@ -104,11 +105,11 @@ class ProtGctf(ProtCTFMicrographs):
                 micFnCtfLogOut = self._getCtfOutPath(micFn)
                 micFnCtfFitOut = self._getCtfFitOutPath(micFn)
 
-                moveFile(micFnCtf, micFnCtfOut)
-                moveFile(micFnCtfLog, micFnCtfLogOut)
-                moveFile(micFnCtfFit, micFnCtfFitOut)
+                pwutils.moveFile(micFnCtf, micFnCtfOut)
+                pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+                pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
 
-            cleanPath(micPath)
+            pwutils.cleanPath(micPath)
 
         except:
             print("ERROR: Gctf has failed on %s/*.mrc" % micPath)

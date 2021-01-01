@@ -34,10 +34,10 @@ import numpy
 from collections import OrderedDict
 
 from pyworkflow.object import ObjectWrap
+import pyworkflow.utils as pwutils
 from pwem.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
 from pwem.convert.transformations import translation_from_matrix
 import pwem.emlib.metadata as md
-import pyworkflow.utils as pwutils
 
 
 CTF_DICT = OrderedDict([
@@ -52,7 +52,7 @@ def parseGctfOutput(filename):
     and ctfResolution from the output file of the Gctf execution.
     """
 
-    if os.path.exists(filename):
+    if pwutils.exists(filename):
         # Create an empty list with: defU, defV, angle, CC and resolution
         result = [0.] * 6
         ansi_escape = re.compile(r'\x1b[^m]*m')

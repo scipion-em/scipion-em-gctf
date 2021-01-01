@@ -98,7 +98,7 @@ class ProtTsGctf(ProtTsEstimateCTF):
 
             # move output from tmp to extra
             pwutils.moveFile(_getFile(ext),
-                              self._getExtraPath(micBase + '_ctf.mrc'))
+                             self._getExtraPath(micBase + '_ctf.mrc'))
             pwutils.moveFile(_getFile('_gctf.log'), self._getTmpPath())
             pwutils.moveFile(_getFile('_EPA.log'), self._getTmpPath())
 
