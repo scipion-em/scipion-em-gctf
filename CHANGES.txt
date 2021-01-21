@@ -1,4 +1,4 @@
-3.0.12 - WIP
+3.0.12 - fix getting GCTF_CUDA_LIB var, update imports
 3.0.11 - add Github actions
 3.0.10 - fix wizard values, update README
 3.0.9 - changed version to reflect Scipion 3 support
