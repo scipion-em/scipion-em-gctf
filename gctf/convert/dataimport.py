@@ -24,9 +24,7 @@
 # *
 # **************************************************************************
 
-import os
-
-import pyworkflow.utils as pwutils 
+import pyworkflow.utils as pwutils
 from pwem.objects import CTFModel
 
 from .convert import readCtfModel
@@ -52,7 +50,7 @@ class GctfImportCTF:
                            fnBase.replace('_gctf', '')]
             for prefix in psdPrefixes:
                 psdFile = prefix + suffix
-                if os.path.exists(psdFile):
+                if pwutils.exists(psdFile):
                     if psdFile.endswith('.ctf'):
                         psdFile += ':mrc'
                     ctf.setPsdFile(psdFile)

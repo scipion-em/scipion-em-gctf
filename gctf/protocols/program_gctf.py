@@ -26,7 +26,7 @@
 # *
 # **************************************************************************
 
-import pwem
+from pwem.objects import CTFModel
 import pyworkflow.protocol.params as params
 
 from .. import Plugin
@@ -125,7 +125,7 @@ class ProgramGctf:
 
         form.addSection(label='Advanced')
         group = form.addGroup('EPA')
-        group.addParam('doEPA', params.BooleanParam, default=False,
+        group.addParam('doEPA', params.BooleanParam, default=True,
                        label="Do EPA",
                        help='Do Equiphase average used for output CTF file. '
                             'Only for nice output, will NOT be used for CTF '
@@ -297,7 +297,7 @@ class ProgramGctf:
         return parseGctfOutput(filename)
 
     def parseOutputAsCtf(self, ctfFile, psdFile=None):
-        ctf = pwem.objects.CTFModel()
+        ctf = CTFModel()
         readCtfModel(ctf, ctfFile)
         if psdFile:
             ctf.setPsdFile(psdFile)

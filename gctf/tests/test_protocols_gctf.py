@@ -26,8 +26,7 @@
 from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
                             ProtImportCTF)
 from pyworkflow.utils import magentaStr
-
-from pyworkflow.tests import *
+from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 
 import gctf
 from gctf.protocols import ProtGctfRefine, ProtGctf
