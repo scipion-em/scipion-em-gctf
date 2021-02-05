@@ -52,7 +52,7 @@ def parseGctfOutput(filename):
     and ctfResolution from the output file of the Gctf execution.
     """
 
-    if pwutils.exists(filename):
+    if os.path.exists(filename):
         # Create an empty list with: defU, defV, angle, CC and resolution
         result = [0.] * 6
         ansi_escape = re.compile(r'\x1b[^m]*m')

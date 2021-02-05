@@ -71,7 +71,7 @@ class ProtGctf(ProtCTFMicrographs):
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
                 downFactor = self.ctfDownFactor.get()
-                micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+                micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
                 if downFactor != 1:
                     # Replace extension by 'mrc' cause there are some formats
