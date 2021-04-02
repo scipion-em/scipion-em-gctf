@@ -29,6 +29,7 @@ from collections import OrderedDict
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from pyworkflow.constants import PROD
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.constants import RELATION_CTF
 from pwem import emlib
@@ -49,6 +50,7 @@ class ProtGctfRefine(ProtParticles):
     """
 
     _label = 'ctf refinement'
+    _devStatus = PROD
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)

@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.utils as pwutils
+from pyworkflow.constants import PROD
 from pwem import emlib
 from pwem.objects import CTFModel
 from pwem.protocols import ProtCTFMicrographs
@@ -42,6 +43,7 @@ class ProtGctf(ProtCTFMicrographs):
     https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/#gctf
     """
     _label = 'ctf estimation'
+    _devStatus = PROD
 
     def _defineCtfParamsDict(self):
         ProtCTFMicrographs._defineCtfParamsDict(self)

@@ -28,6 +28,7 @@ import os
 
 from pwem.protocols import EMProtocol, pwutils
 from pyworkflow.protocol import STEPS_PARALLEL
+from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 
 try:
@@ -46,6 +47,7 @@ class ProtTsGctf(ProtTsEstimateCTF):
     CTF estimation on Tilt-Series using GCTF.
     """
     _label = 'tiltseries gctf'
+    _devStatus = BETA
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
