@@ -32,20 +32,18 @@ from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 
 try:
+    from tomo.objects import CTFTomo
     from tomo.protocols import ProtTsEstimateCTF
-except ImportError:
-    raise ImportError(
-        'To use a Tomography protocol scipion-em-tomo plugin is required.'
-        ' See https://github.com/scipion-em/scipion-em-tomo for further details')
+except ImportError as e:
+    if "'tomo'" not in str(e):
+        raise e
 
 from .program_gctf import ProgramGctf
 import gctf
 
 
 class ProtTsGctf(ProtTsEstimateCTF):
-    """
-    CTF estimation on Tilt-Series using GCTF.
-    """
+    """ CTF estimation on a set of tilt series using GCTF. """
     _label = 'tiltseries gctf'
     _devStatus = BETA
 
@@ -113,20 +111,13 @@ class ProtTsGctf(ProtTsEstimateCTF):
 
         return errors
 
-    def _summary(self):
-        return [self.summaryVar.get('')]
-
     # --------------------------- UTILS functions ----------------------------
-    def _getArgs(self):
-        """ Return a list with parameters that will be passed to the process
-        TiltSeries step. It can be redefined by subclasses.
-        """
-        return []
-
     def getCtf(self, ti):
-        """ Parse the CTF object estimated for this Tilt-Image
-        """
+        """ Parse the CTF object estimated for this Tilt-Image. """
         prefix = self.getTiPrefix(ti)
         psd = self._getExtraPath(prefix + '_ctf.mrc')
         outCtf = self._getTmpPath(prefix + '_gctf.log')
-        return self._gctfProgram.parseOutputAsCtf(outCtf, psdFile=psd)
+        ctfModel = self._gctfProgram.parseOutputAsCtf(outCtf, psdFile=psd)
+        ctfTomo = CTFTomo.ctfModelToCtfTomo(ctfModel)
+
+        return ctfTomo
