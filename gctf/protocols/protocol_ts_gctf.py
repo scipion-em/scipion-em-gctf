@@ -100,7 +100,8 @@ class ProtTsGctf(ProtTsEstimateCTF):
             pwutils.moveFile(_getFile(ext),
                              self._getExtraPath(micBase + '_ctf.mrc'))
             pwutils.moveFile(_getFile('_gctf.log'), self._getTmpPath())
-            pwutils.moveFile(_getFile('_EPA.log'), self._getTmpPath())
+            pwutils.moveFile(_getFile('_EPA.log'),
+                             self._getExtraPath())
 
         except Exception as ex:
             print("ERROR: Gctf has failed for %s" % tiFn)
