@@ -24,10 +24,15 @@
 # *
 # **************************************************************************
 
+import os
+from matplotlib.figure import Figure
+
+from pwem.emlib.image import ImageHandler
 from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER
 from pwem.viewers import EmPlotter, CtfView, showj
+from tomo.viewers.viewers_data import CtfEstimationTomoViewer
 
 from . import Plugin
 from .protocols import ProtGctf
@@ -38,7 +43,7 @@ def createCtfPlot(ctfSet, ctfId):
     psdFn = ctfModel.getPsdFile()
     fn = pwutils.removeExt(psdFn) + "_EPA.log"
     xplotter = EmPlotter(windowTitle='CTF Fitting')
-    plot_title = "CTF Fitting"
+    plot_title = getPlotSubtitle(ctfModel)
     a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF')
     a.invert_xaxis()
     version = Plugin.getActiveVersion()
@@ -55,7 +60,7 @@ def createCtfPlot(ctfSet, ctfId):
     xplotter.show()
 
 
-OBJCMD_GCTF = "Display Ctf Analysis"
+OBJCMD_GCTF = "GCTF plot results"
 
 ProjectWindow.registerObjectCommand(OBJCMD_GCTF, createCtfPlot)
 
@@ -75,6 +80,26 @@ def _getValues(fn, col):
     return values
 
 
+def getPlotSubtitle(ctf):
+    """ Create plot subtitle using CTF values. """
+    ang = u"\u212B"
+    deg = u"\u00b0"
+    def1, def2, angle = ctf.getDefocus()
+    phSh = ctf.getPhaseShift()
+    score = ctf.getFitQuality()
+    res = ctf.getResolution()
+
+    title = "Def1: %d %s | Def2: %d %s | Angle: %0.1f%s | " % (
+        def1, ang, def2, ang, angle, deg)
+
+    if phSh is not None:
+        title += "Phase shift: %0.2f %s | " % (phSh, deg)
+
+    title += "Fit: %0.1f %s | Score: %0.3f" % (res, ang, score)
+
+    return title
+
+
 class GctfViewer(Viewer):
     """ Visualization of Gctf results. """
     _environments = [DESKTOP_TKINTER]
@@ -91,3 +116,46 @@ class GctfViewer(Viewer):
         else:
             return [self.infoMessage("The output SetOfCTFs has not been "
                                      "produced", "Missing output")]
+
+
+class CtfEstimationTomoViewerGctf(CtfEstimationTomoViewer):
+    """ This class implements a view using Tkinter CtfEstimationListDialog
+    and the CtfEstimationTreeProvider.
+    """
+    def plot1D(self, ctfSet, ctfId):
+        ctfModel = ctfSet[ctfId]
+        psdFn = ctfModel.getPsdFile()
+        psdBase = os.path.basename(psdFn).replace("_ctf", "")
+        fn = os.path.join(os.path.dirname(psdFn),
+                          pwutils.removeExt(psdBase) + '_EPA.log')
+
+        xplotter = EmPlotter(windowTitle='GCTF results')
+        plot_title = '%s # %d\n' % (ctfSet.getTsId(), ctfId) + getPlotSubtitle(ctfModel)
+        a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF')
+        a.invert_xaxis()
+        version = Plugin.getActiveVersion()
+        curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]
+
+        for i in curves:
+            _plotCurve(a, i, fn)
+        xplotter.showLegend(['simulated CTF',
+                             # 'equiphase avg.',
+                             # 'bg', #  only for v1.18
+                             'equiphase avg. - bg',
+                             'cross correlation'])
+        a.grid(True)
+
+        return xplotter
+
+    def plot2D(self, ctfSet, ctfId):
+        ctfModel = ctfSet[ctfId]
+        psdFn = ctfModel.getPsdFile()
+        img = ImageHandler().read(psdFn)
+        fig = Figure(figsize=(7, 7), dpi=100)
+        psdPlot = fig.add_subplot(111)
+        psdPlot.get_xaxis().set_visible(False)
+        psdPlot.get_yaxis().set_visible(False)
+        psdPlot.set_title('%s # %d\n' % (ctfSet.getTsId(), ctfId) + getPlotSubtitle(ctfModel))
+        psdPlot.imshow(img.getData(), cmap='gray')
+
+        return fig
