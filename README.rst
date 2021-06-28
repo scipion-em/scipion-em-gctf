@@ -81,7 +81,7 @@ Protocols
 
 * ctf estimation
 * ctf refinement
-* tiltseries gctf
+* tilt-series gctf
 
 References
 ----------

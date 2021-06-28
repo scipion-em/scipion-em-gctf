@@ -44,7 +44,7 @@ import gctf
 
 class ProtTsGctf(ProtTsEstimateCTF):
     """ CTF estimation on a set of tilt series using GCTF. """
-    _label = 'tiltseries gctf'
+    _label = 'tilt-series gctf'
     _devStatus = BETA
 
     def __init__(self, **kwargs):
