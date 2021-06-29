@@ -35,7 +35,7 @@ from pwem.viewers import EmPlotter, CtfView, showj
 from tomo.viewers.viewers_data import CtfEstimationTomoViewer
 
 from . import Plugin
-from .protocols import ProtGctf
+from .protocols import ProtGctf, ProtTsGctf
 
 
 def createCtfPlot(ctfSet, ctfId):
@@ -122,12 +122,12 @@ class CtfEstimationTomoViewerGctf(CtfEstimationTomoViewer):
     """ This class implements a view using Tkinter CtfEstimationListDialog
     and the CtfEstimationTreeProvider.
     """
+    _targets = [ProtTsGctf]
+
     def plot1D(self, ctfSet, ctfId):
         ctfModel = ctfSet[ctfId]
         psdFn = ctfModel.getPsdFile()
-        psdBase = os.path.basename(psdFn).replace("_ctf", "")
-        fn = os.path.join(os.path.dirname(psdFn),
-                          pwutils.removeExt(psdBase) + '_EPA.log')
+        fn = os.path.join(pwutils.removeExt(psdFn).replace("_ctf", "") + '_EPA.log')
 
         xplotter = EmPlotter(windowTitle='GCTF results')
         plot_title = '%s # %d\n' % (ctfSet.getTsId(), ctfId) + getPlotSubtitle(ctfModel)
