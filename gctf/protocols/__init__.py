@@ -29,7 +29,6 @@ from .protocol_gctf_refine import ProtGctfRefine
 
 try:
     from .protocol_ts_gctf import ProtTsGctf
-except ImportError:
-    raise ImportError(
-        'To use a Tomography protocol scipion-em-tomo plugin is required.'
-        ' See https://github.com/scipion-em/scipion-em-tomo for further details')
+except ImportError as e:
+    if "'tomo'" not in str(e):
+        raise e

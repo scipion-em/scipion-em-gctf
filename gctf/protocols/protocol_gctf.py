@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.utils as pwutils
+from pyworkflow.constants import PROD
 from pwem import emlib
 from pwem.objects import CTFModel
 from pwem.protocols import ProtCTFMicrographs
@@ -42,6 +43,7 @@ class ProtGctf(ProtCTFMicrographs):
     https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/#gctf
     """
     _label = 'ctf estimation'
+    _devStatus = PROD
 
     def _defineCtfParamsDict(self):
         ProtCTFMicrographs._defineCtfParamsDict(self)
@@ -71,7 +73,7 @@ class ProtGctf(ProtCTFMicrographs):
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
                 downFactor = self.ctfDownFactor.get()
-                micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+                micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
                 if downFactor != 1:
                     # Replace extension by 'mrc' cause there are some formats

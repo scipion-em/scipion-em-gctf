@@ -24,10 +24,12 @@
 # *
 # **************************************************************************
 
+import os
 from collections import OrderedDict
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
+from pyworkflow.constants import PROD
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.constants import RELATION_CTF
 from pwem import emlib
@@ -48,6 +50,7 @@ class ProtGctfRefine(ProtParticles):
     """
 
     _label = 'ctf refinement'
+    _devStatus = PROD
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -392,7 +395,7 @@ class ProtGctfRefine(ProtParticles):
             if self._lastWriter:
                 self._lastWriter.close()
             micBase = pwutils.removeBaseExt(mic.getFileName())
-            posFn = pwutils.join(coordDir, micBase, micBase + '_coords.star')
+            posFn = os.path.join(coordDir, micBase, micBase + '_coords.star')
             self._lastWriter = CoordinatesWriter(posFn)
 
         for particle in self._iterParticlesMic(newMicCallback=_newMic):
@@ -414,7 +417,7 @@ class ProtGctfRefine(ProtParticles):
 
         downFactor = self.ctfDownFactor.get()
         ih = emlib.image.ImageHandler()
-        micFnMrc = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+        micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
         if downFactor != 1:
             # Replace extension by 'mrc' cause there are some formats
@@ -462,10 +465,10 @@ class ProtGctfRefine(ProtParticles):
             pwutils.cleanPath(micFnMrc)
     
             # move output from tmp to extra
-            micFnCtf = pwutils.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
-            micFnCtfLog = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
-            micFnCtfFit = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
-            micFnCtfLocal = pwutils.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
+            micFnCtf = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
+            micFnCtfLog = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
+            micFnCtfFit = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
+            micFnCtfLocal = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
     
             micFnCtfOut = self._getPsdPath(micFn)
             micFnCtfLogOut = self._getCtfOutPath(micFn)
@@ -492,7 +495,7 @@ class ProtGctfRefine(ProtParticles):
             micBase = pwutils.removeBaseExt(mic.getFileName())
             ctfFn = self._getCtfLocalOutPath(micBase)
             self._rowCounter = 0
-            if pwutils.exists(ctfFn):
+            if os.path.exists(ctfFn):
                 self._rowList = [row.clone() for row in md.iterRows(ctfFn)]
             else:
                 self._rowList = None

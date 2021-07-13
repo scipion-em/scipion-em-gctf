@@ -1,3 +1,4 @@
+3.0.13 - add a test for TS gctf
 3.0.12 - fix getting GCTF_CUDA_LIB var, update imports
 3.0.11 - add Github actions
 3.0.10 - fix wizard values, update README
