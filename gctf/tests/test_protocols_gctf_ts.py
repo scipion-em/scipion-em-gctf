@@ -28,33 +28,14 @@ import os
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 
-try:
-    from tomo.protocols import ProtImportTs
-except ImportError as e:
-    if "'tomo'" not in str(e):
-        raise e
-
+from tomo.protocols import ProtImportTs
 from ..protocols import ProtTsGctf
 
 
 class TestBase(BaseTest):
     @classmethod
-    def runImportTiltSeries(cls, filesPath, pattern, voltage, magnification,
-                            sphericalAberration, amplitudeContrast,
-                            samplingRate, stepAngle, anglesFrom=0,
-                            minAngle=-60.0, maxAngle=60.0):
-        cls.protImportTS = cls.newProtocol(ProtImportTs,
-                                           filesPath=filesPath,
-                                           filesPattern=pattern,
-                                           voltage=voltage,
-                                           anglesFrom=anglesFrom,
-                                           magnification=magnification,
-                                           sphericalAberration=sphericalAberration,
-                                           amplitudeContrast=amplitudeContrast,
-                                           samplingRate=samplingRate,
-                                           minAngle=minAngle,
-                                           maxAngle=maxAngle,
-                                           stepAngle=stepAngle)
+    def runImportTiltSeries(cls, **kwargs):
+        cls.protImportTS = cls.newProtocol(ProtImportTs, **kwargs)
         cls.launchProtocol(cls.protImportTS)
         return cls.protImportTS
 
@@ -68,13 +49,11 @@ class TestGctfTs(TestBase):
 
         print(magentaStr("\n==> Importing data - tilt series:"))
         cls.protImportTS = cls.runImportTiltSeries(filesPath=os.path.dirname(cls.inputSoTS),
-                                                   pattern="WTI042413_1series4.st",
+                                                   filesPattern="WTI042413_1series4.mdoc",
                                                    voltage=300,
-                                                   magnification=33000,
                                                    sphericalAberration=2.7,
                                                    amplitudeContrast=0.07,
-                                                   samplingRate=6.73981,
-                                                   stepAngle=2.0)
+                                                   anglesFrom=2)
 
     def testGctfTs(self):
         print(magentaStr("\n==> Testing gctf:"))

@@ -26,9 +26,4 @@
 
 from .protocol_gctf import ProtGctf
 from .protocol_gctf_refine import ProtGctfRefine
-
-try:
-    from .protocol_ts_gctf import ProtTsGctf
-except ImportError as e:
-    if "'tomo'" not in str(e):
-        raise e
+from .protocol_ts_gctf import ProtTsGctf
