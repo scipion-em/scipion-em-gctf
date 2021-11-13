@@ -31,13 +31,8 @@ from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.constants import BETA
 import pyworkflow.protocol.params as params
 
-try:
-    from tomo.objects import CTFTomo
-    from tomo.protocols import ProtTsEstimateCTF
-except ImportError as e:
-    if "'tomo'" not in str(e):
-        raise e
-
+from tomo.objects import CTFTomo
+from tomo.protocols import ProtTsEstimateCTF
 from .program_gctf import ProgramGctf
 import gctf
 
