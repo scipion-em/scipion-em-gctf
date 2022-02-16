@@ -24,6 +24,10 @@
 # *
 # **************************************************************************
 
+from pyworkflow.utils import weakImport
+
 from .protocol_gctf import ProtGctf
 from .protocol_gctf_refine import ProtGctfRefine
-from .protocol_ts_gctf import ProtTsGctf
+
+with weakImport('tomo'):
+    from .protocol_ts_gctf import ProtTsGctf
