@@ -32,7 +32,7 @@ import pyworkflow.utils as pwutils
 from .constants import *
 
 
-__version__ = '3.0.13'
+__version__ = '3.0.14'
 _logo = "gctf_logo.png"
 _references = ['Zhang2016']
 
