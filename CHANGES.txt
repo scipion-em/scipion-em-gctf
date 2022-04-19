@@ -1,3 +1,4 @@
+3.0.15 - Remove tomo dependency
 3.0.14 - use weakImport for tomo
 3.0.13 - add a test for TS gctf
 3.0.12 - fix getting GCTF_CUDA_LIB var, update imports
