@@ -26,6 +26,7 @@
 
 import os
 from collections import OrderedDict
+from enum import Enum
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -35,10 +36,15 @@ from pwem.constants import RELATION_CTF
 from pwem import emlib
 import pwem.emlib.metadata as md
 from pwem.protocols import EMProtocol, ProtParticles
+from pwem.objects import SetOfParticles
 
 from .. import Plugin
 from ..convert import CoordinatesWriter, rowToCtfModel, getShifts
 from ..constants import *
+
+
+class outputs(Enum):
+    outputParticles = SetOfParticles
 
 
 class ProtGctfRefine(ProtParticles):
@@ -51,6 +57,7 @@ class ProtGctfRefine(ProtParticles):
 
     _label = 'ctf refinement'
     _devStatus = PROD
+    _possibleOutputs = outputs
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
@@ -429,6 +436,7 @@ class ProtGctfRefine(ProtParticles):
             ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
+        self._args_refine = ""
         if self.useInputCtf and self.ctfRelations.hasValue():
             ctfs = self._getCtfs()
 
@@ -443,20 +451,21 @@ class ProtGctfRefine(ProtParticles):
                                          'defA_init': ctf.getDefocusAngle(),
                                          'B_init': self.bfactor.get()
                                          })
-                    self._args += "--refine_input_ctf %d " % self._params['refine_input_ctf']
-                    self._args += "--defU_init %f " % self._params['defU_init']
-                    self._args += "--defV_init %f " % self._params['defV_init']
-                    self._args += "--defA_init %f " % self._params['defA_init']
-                    self._args += "--B_init %f " % self._params['B_init']
-                    self._args += "--defU_err %f " % self.defUerr.get()
-                    self._args += "--defV_err %f " % self.defVerr.get()
-                    self._args += "--defA_err %f " % self.defAerr.get()
-                    self._args += "--B_err %f " % self.Berr.get()
+                    self._args_refine += "--refine_input_ctf %d " % self._params['refine_input_ctf']
+                    self._args_refine += "--defU_init %f " % self._params['defU_init']
+                    self._args_refine += "--defV_init %f " % self._params['defV_init']
+                    self._args_refine += "--defA_init %f " % self._params['defA_init']
+                    self._args_refine += "--B_init %f " % self._params['B_init']
+                    self._args_refine += "--defU_err %f " % self.defUerr.get()
+                    self._args_refine += "--defV_err %f " % self.defVerr.get()
+                    self._args_refine += "--defA_err %f " % self.defAerr.get()
+                    self._args_refine += "--B_err %f " % self.Berr.get()
                     break
 
         # Run Gctf refine
         try:
             args = self._args % self._params
+            args += self._args_refine
             args += ' %s' % micFnMrc
             self.runJob(Plugin.getProgram(), args,
                         env=Plugin.getEnviron())
@@ -509,7 +518,7 @@ class ProtGctfRefine(ProtParticles):
             rowToCtfModel(row, newPart.getCTF())
             partSet.append(newPart)
 
-        self._defineOutputs(outputParticles=partSet)
+        self._defineOutputs(**{outputs.outputParticles.name: partSet})
         self._defineTransformRelation(self.inputParticles, partSet)
 
     # -------------------------- INFO functions --------------------------------
