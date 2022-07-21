@@ -466,19 +466,8 @@ class ProtGctfRefine(ProtParticles):
             pwutils.cleanPath(micFnMrc)
     
             # move output from tmp to extra
-            micFnCtf = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
-            micFnCtfLog = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
-            micFnCtfFit = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
             micFnCtfLocal = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
-    
-            micFnCtfOut = self._getPsdPath(micFn)
-            micFnCtfLogOut = self._getCtfOutPath(micFn)
-            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
             micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
-    
-            pwutils.moveFile(micFnCtf, micFnCtfOut)
-            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
             pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
         except:
             print("ERROR: Gctf has failed on %s" % micFnMrc)
