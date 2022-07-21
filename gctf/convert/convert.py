@@ -23,28 +23,14 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-"""
-This module contains converter functions that will serve to:
-1. Write from base classes to Gctf specific files
-2. Read from Gctf files to base classes
-"""
+
 import os
 import re
 import numpy
-from collections import OrderedDict
 
-from pyworkflow.object import ObjectWrap
 import pyworkflow.utils as pwutils
 from pwem.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
 from pwem.convert.transformations import translation_from_matrix
-import pwem.emlib.metadata as md
-
-
-CTF_DICT = OrderedDict([
-       ("_defocusU", md.RLN_CTF_DEFOCUSU),
-       ("_defocusV", md.RLN_CTF_DEFOCUSV),
-       ("_defocusAngle", md.RLN_CTF_DEFOCUS_ANGLE)
-       ])
 
 
 def parseGctfOutput(filename):
@@ -96,7 +82,7 @@ def readCtfModel(ctfModel, filename):
     result = parseGctfOutput(filename)
     if result is None:
         setWrongDefocus(ctfModel)
-        ctfFit, ctfResolution, ctfPhaseShift = -999, -999, -999
+        ctfFit, ctfResolution, ctfPhaseShift = -999, -999, 0
     else:
         defocusU, defocusV, defocusAngle, ctfFit, ctfPhaseShift, ctfResolution = result
         ctfModel.setStandardDefocus(defocusU, defocusV, defocusAngle)
@@ -131,21 +117,19 @@ _rlnCoordinateY #2
         self._f.close()
 
 
-def rowToCtfModel(ctfRow, ctfModel):
+def rowToCtfModel(row, ctf):
     """ Create a CTFModel from a row of a meta """
-    if ctfRow.containsAll(CTF_DICT):
-        for attr, label in CTF_DICT.items():
-            value = ctfRow.getValue(label)
-            if not hasattr(ctfModel, attr):
-                setattr(ctfModel, attr, ObjectWrap(value))
-            else:
-                getattr(ctfModel, attr).set(value)
+    ctf.setDefocusU(row.rlnDefocusU)
+    ctf.setDefocusV(row.rlnDefocusV)
+    ctf.setDefocusAngle(row.rlnDefocusAngle)
+    ctf.setResolution(row.get('rlnCtfMaxResolution', 0))
+    ctf.setFitQuality(row.get('rlnCtfFigureOfMerit', 0))
 
-        ctfModel.standardize()
-    else:
-        ctfModel = None
+    if hasattr(row, 'rlnPhaseShift'):
+        ctf.setPhaseShift(row.rlnPhaseShift)
+    ctf.standardize()
 
-    return ctfModel
+    return ctf
 
 
 def getShifts(transform, alignType):
@@ -161,7 +145,6 @@ def getShifts(transform, alignType):
     inverseTransform = alignType == ALIGN_PROJ
     # only flip is meaningful if 2D case
     # in that case the 2x2 determinant is negative
-    flip = False
     matrix = transform.getMatrix()
     if alignType == ALIGN_2D:
         # get 2x2 matrix and check if negative
@@ -176,10 +159,6 @@ def getShifts(transform, alignType):
             matrix[0, :4] *= -1.  # now, invert first line including x
             matrix[3, 3] = 1.  # set 3D rot
 
-    # else:
-        # flip = bool(numpy.linalg.det(matrix[0:3,0:3]) < 0)
-        # if flip:
-        #    matrix[0,:4] *= -1.#now, invert first line including x
     shifts = geometryFromMatrix(matrix, inverseTransform)
 
     return shifts

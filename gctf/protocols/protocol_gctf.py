@@ -82,7 +82,10 @@ class ProtGctf(ProtCTFMicrographs):
                     sps = self._params['scannedPixelSize'] * downFactor
                     kwargs['scannedPixelSize'] = sps
                 else:
-                    ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
+                    if micFn.endswith('.mrc'):
+                        pwutils.createAbsLink(os.path.abspath(micFn), micFnMrc)
+                    else:
+                        ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath

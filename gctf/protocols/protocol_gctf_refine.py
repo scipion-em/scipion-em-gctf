@@ -27,6 +27,7 @@
 import os
 from collections import OrderedDict
 from enum import Enum
+from emtable import Table
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -34,7 +35,6 @@ from pyworkflow.constants import PROD
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.constants import RELATION_CTF
 from pwem import emlib
-import pwem.emlib.metadata as md
 from pwem.protocols import EMProtocol, ProtParticles
 from pwem.objects import SetOfParticles
 
@@ -497,7 +497,7 @@ class ProtGctfRefine(ProtParticles):
             ctfFn = self._getCtfLocalOutPath(micBase)
             self._rowCounter = 0
             if os.path.exists(ctfFn):
-                self._rowList = [row.clone() for row in md.iterRows(ctfFn)]
+                self._rowList = Table(fileName=ctfFn, tableName='')
             else:
                 self._rowList = None
 
