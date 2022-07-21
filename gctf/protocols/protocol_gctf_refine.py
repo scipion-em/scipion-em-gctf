@@ -325,27 +325,20 @@ class ProtGctfRefine(ProtParticles):
     def _createMicDict(self):
         """ Create a dictionary with all micrographs that
          are both in the input micrographs set and there
-         are particles belonging to it.
-         micName will be the key to that dict.
+         are particles from the input set belonging to it.
+
+         {micName:fileName}
          """
         inputParticles = self.inputParticles.get()
-        firstCoord = inputParticles.getFirstItem().getCoordinate()
-        self.hasMicName = firstCoord.getMicName() is not None
-        inputMicDict = {mic.getMicName(): mic.clone()
+        inputMicDict = {mic.getMicName(): mic.getFileName()
                         for mic in self._getMicrographs()}
-        # Check now which if these mics have particles belonging
-        self.micDict = OrderedDict()
-        # match the mic from coord with micDict
-        lastMicId = None
-        # TODO: If this loop is too expensive for very large input datasets,
-        # we could consider using the aggregate functions in the mapper
-        for particle in inputParticles.iterItems(orderBy='_micId'):
-            micId = particle.getMicId()
-            if micId != lastMicId:  # Do no repeat check when this is the same mic
-                micName = particle.getCoordinate().getMicName()
-                if micName in inputMicDict:
-                    self.micDict[micName] = inputMicDict[micName]
-                lastMicId = micId
+
+        # Check now which of these mics have related particles 
+        micNames = inputParticles.aggregate(["COUNT"], "_coordinate._micName", 
+                                            ["_coordinate._micName"])
+        micNames = [mic["_coordinate._micName"] for mic in micNames]
+        keys = set(micNames).intersection(set(inputMicDict.keys()))
+        self.micDict = OrderedDict([(key, inputMicDict[key]) for key in keys])
 
     def _insertAllSteps(self):
         self._createMicDict()
@@ -355,8 +348,8 @@ class ProtGctfRefine(ProtParticles):
         convIdDeps = [self._insertFunctionStep('convertInputStep')]
         refineDeps = []
 
-        for micName, mic in self.micDict.items():
-            stepId = self._insertFunctionStep('refineCtfStep', mic.getFileName(), micName,
+        for micName, micFn in self.micDict.items():
+            stepId = self._insertFunctionStep('refineCtfStep', micFn, micName,
                                               prerequisites=convIdDeps)
             refineDeps.append(stepId)
 
@@ -369,20 +362,19 @@ class ProtGctfRefine(ProtParticles):
         lastMicId = None
 
         for particle in inputParts.iterItems(orderBy=['_micId', 'id']):
-            coord = particle.getCoordinate()
             micId = particle.getMicId()
-            micName = coord.getMicName()
+            micName = particle.getCoordinate().getMicName()
 
             if micId != lastMicId:  # Do no repeat check when this is the same mic
-                mic = self.micDict.get(micName, None)
-                if mic is None:
-                    print("Skipping all particles from micrograph, "
+                micFn = self.micDict.get(micName, None)
+                if micFn is None:
+                    print("Skipping all particles from a micrograph, "
                           "key %s not found" % micName)
                 else:
-                    newMicCallback(mic)  # Notify about a new micrograph found
+                    newMicCallback(micFn)  # Notify about a new micrograph found
                 lastMicId = micId
 
-            if mic is not None:
+            if micFn is not None:
                 yield particle
 
     def convertInputStep(self):
@@ -398,22 +390,22 @@ class ProtGctfRefine(ProtParticles):
         self._lastWriter = None
         coordDir = self._getTmpPath()
 
-        def _newMic(mic):
+        def _newMic(micFn):
             if self._lastWriter:
                 self._lastWriter.close()
-            micBase = pwutils.removeBaseExt(mic.getFileName())
+            micBase = pwutils.removeBaseExt(micFn)
             posFn = os.path.join(coordDir, micBase, micBase + '_coords.star')
             self._lastWriter = CoordinatesWriter(posFn)
 
         for particle in self._iterParticlesMic(newMicCallback=_newMic):
             coord = particle.getCoordinate()
-            x, y = coord.getPosition()
             if self.applyShifts:
                 shifts = getShifts(particle.getTransform(), alignType)
-                x, y = x - int(shifts[0]), y - int(shifts[1])
+                coord.shiftX(-int(shifts[0]))
+                coord.shiftY(-int(shifts[1]))
             if doScale:
-                x, y = x * scale, y * scale
-            self._lastWriter.writeCoord(x, y)
+                coord.scale(scale)
+            self._lastWriter.writeCoord(coord.getPosition())
 
         if self._lastWriter:
             self._lastWriter.close()  # Close file writing for last mic
@@ -433,16 +425,20 @@ class ProtGctfRefine(ProtParticles):
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
+            if micFn.endswith('.mrc'):
+                pwutils.createAbsLink(os.path.abspath(micFn), micFnMrc)
+            else:
+                ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         self._args_refine = ""
         if self.useInputCtf and self.ctfRelations.hasValue():
             ctfs = self._getCtfs()
 
-            for ctf in ctfs:
-                ctfMicName = ctf.getMicrograph().getMicName()
-                ctfMicId = ctf.getMicrograph().getObjId()
+            for ctf in ctfs.iterItems():
+                mic = ctf.getMicrograph()
+                ctfMicName = mic.getMicName()
+                ctfMicId = mic.getObjId()
                 if micKey == ctfMicName or micKey == ctfMicId:
                     # add CTF refine options
                     self._params.update({'refine_input_ctf': 1,
@@ -500,8 +496,8 @@ class ProtGctfRefine(ProtParticles):
         self._rowList = None
         self._rowCounter = 0
 
-        def _newMic(mic):
-            micBase = pwutils.removeBaseExt(mic.getFileName())
+        def _newMic(micFn):
+            micBase = pwutils.removeBaseExt(micFn)
             ctfFn = self._getCtfLocalOutPath(micBase)
             self._rowCounter = 0
             if os.path.exists(ctfFn):
@@ -510,7 +506,7 @@ class ProtGctfRefine(ProtParticles):
                 self._rowList = None
 
         for particle in self._iterParticlesMic(newMicCallback=_newMic):
-            if self._rowList is None:  # Ignore particles if not CTF
+            if self._rowList is None:  # Ignore particles with no CTF
                 continue
             newPart = particle.clone()
             row = self._rowList[self._rowCounter]

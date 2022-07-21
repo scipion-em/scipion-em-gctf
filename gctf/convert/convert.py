@@ -124,8 +124,8 @@ _rlnCoordinateY #2
         self._f = open(filename, 'w')
         self._f.write(self.HEADER)
 
-    def writeCoord(self, x, y):
-        self._f.write("%d %d\n" % (x, y))
+    def writeCoord(self, pos):
+        self._f.write("%d %d\n" % (pos[0], pos[1]))
 
     def close(self):
         self._f.close()
