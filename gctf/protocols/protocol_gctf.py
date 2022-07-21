@@ -117,7 +117,7 @@ class ProtGctf(ProtCTFMicrographs):
             pwutils.cleanPath(micPath)
 
         except:
-            print("ERROR: Gctf has failed on %s/*.mrc" % micPath)
+            self.error("ERROR: Gctf has failed for %s/*.mrc" % micPath)
             import traceback
             traceback.print_exc()
 

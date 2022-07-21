@@ -88,7 +88,6 @@ class ProtTsGctf(ProtTsEstimateCTF):
             micBase = pwutils.removeBaseExt(tiFn)
 
             def _getFile(suffix):
-                print("File: %s" % os.path.join(workingDir, micBase + suffix))
                 return os.path.join(workingDir, micBase + suffix)
 
             # move output from tmp to extra
@@ -99,7 +98,7 @@ class ProtTsGctf(ProtTsEstimateCTF):
                              self._getExtraPath())
 
         except Exception as ex:
-            print("ERROR: Gctf has failed for %s" % tiFn)
+            self.error("ERROR: Gctf has failed for %s" % tiFn)
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):

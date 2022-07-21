@@ -368,8 +368,8 @@ class ProtGctfRefine(ProtParticles):
             if micId != lastMicId:  # Do no repeat check when this is the same mic
                 micFn = self.micDict.get(micName, None)
                 if micFn is None:
-                    print("Skipping all particles from a micrograph, "
-                          "key %s not found" % micName)
+                    self.warning("Skipping all particles from micrograph %s, "
+                                 "corresponding micrograph not found" % micName)
                 else:
                     newMicCallback(micFn)  # Notify about a new micrograph found
                 lastMicId = micId
@@ -385,7 +385,7 @@ class ProtGctfRefine(ProtParticles):
         scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
         doScale = abs(scale - 1.0 > 0.00001)
         if doScale:
-            print("Scaling coordinates by a factor *%0.2f*" % scale)
+            self.info("Scaling coordinates by a factor *%0.2f*" % scale)
 
         self._lastWriter = None
         coordDir = self._getTmpPath()
@@ -453,6 +453,9 @@ class ProtGctfRefine(ProtParticles):
                 self._args_refine += "--defV_err %f " % self.defVerr.get()
                 self._args_refine += "--defA_err %f " % self.defAerr.get()
                 self._args_refine += "--B_err %f " % self.Berr.get()
+            else:
+                self.warning("Skipping micrograph %s, CTF not found" % micKey)
+                return
 
         # Run Gctf refine
         try:
@@ -470,7 +473,7 @@ class ProtGctfRefine(ProtParticles):
             micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
             pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
         except:
-            print("ERROR: Gctf has failed on %s" % micFnMrc)
+            self.error("ERROR: Gctf has failed for %s" % micFnMrc)
             import traceback
             traceback.print_exc()
 
