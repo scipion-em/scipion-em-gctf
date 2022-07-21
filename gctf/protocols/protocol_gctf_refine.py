@@ -435,28 +435,24 @@ class ProtGctfRefine(ProtParticles):
         if self.useInputCtf and self.ctfRelations.hasValue():
             ctfs = self._getCtfs()
 
-            for ctf in ctfs.iterItems():
-                mic = ctf.getMicrograph()
-                ctfMicName = mic.getMicName()
-                ctfMicId = mic.getObjId()
-                if micKey == ctfMicName or micKey == ctfMicId:
-                    # add CTF refine options
-                    self._params.update({'refine_input_ctf': 1,
-                                         'defU_init': ctf.getDefocusU(),
-                                         'defV_init': ctf.getDefocusV(),
-                                         'defA_init': ctf.getDefocusAngle(),
-                                         'B_init': self.bfactor.get()
-                                         })
-                    self._args_refine += "--refine_input_ctf %d " % self._params['refine_input_ctf']
-                    self._args_refine += "--defU_init %f " % self._params['defU_init']
-                    self._args_refine += "--defV_init %f " % self._params['defV_init']
-                    self._args_refine += "--defA_init %f " % self._params['defA_init']
-                    self._args_refine += "--B_init %f " % self._params['B_init']
-                    self._args_refine += "--defU_err %f " % self.defUerr.get()
-                    self._args_refine += "--defV_err %f " % self.defVerr.get()
-                    self._args_refine += "--defA_err %f " % self.defAerr.get()
-                    self._args_refine += "--B_err %f " % self.Berr.get()
-                    break
+            ctf = ctfs.iterItems(where="_micObj._micName=='%s'" % micKey, iterate=False)
+            if ctf:
+                # add CTF refine options
+                self._params.update({'refine_input_ctf': 1,
+                                     'defU_init': ctf[0].getDefocusU(),
+                                     'defV_init': ctf[0].getDefocusV(),
+                                     'defA_init': ctf[0].getDefocusAngle(),
+                                     'B_init': self.bfactor.get()
+                                     })
+                self._args_refine += "--refine_input_ctf %d " % self._params['refine_input_ctf']
+                self._args_refine += "--defU_init %f " % self._params['defU_init']
+                self._args_refine += "--defV_init %f " % self._params['defV_init']
+                self._args_refine += "--defA_init %f " % self._params['defA_init']
+                self._args_refine += "--B_init %f " % self._params['B_init']
+                self._args_refine += "--defU_err %f " % self.defUerr.get()
+                self._args_refine += "--defV_err %f " % self.defVerr.get()
+                self._args_refine += "--defA_err %f " % self.defAerr.get()
+                self._args_refine += "--B_err %f " % self.Berr.get()
 
         # Run Gctf refine
         try:
