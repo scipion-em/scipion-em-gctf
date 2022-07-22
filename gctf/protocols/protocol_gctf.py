@@ -72,6 +72,11 @@ class ProtGctf(ProtCTFMicrographs):
             for mic in micList:
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
+
+                if not os.path.exists(micFn):
+                    self.error("Missing input micrograph: %s. Skipping..." % micFn)
+                    continue
+
                 downFactor = self.ctfDownFactor.get()
                 micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
@@ -96,6 +101,10 @@ class ProtGctf(ProtCTFMicrographs):
 
             for mic in micList:
                 micFn = mic.getFileName()
+
+                if not os.path.exists(micFn):
+                    continue
+
                 micBase = pwutils.removeBaseExt(micFn)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
