@@ -49,8 +49,8 @@ b) Developer's version
 
       scipion installp -p /path/to/scipion-em-gctf --devel
 
-Gctf binaries will be installed automatically with the plugin, but you can also link an existing installation. 
-Default installation path assumed is ``software/em/gctf-1.18``, if you want to change it, set *GCTF_HOME* in ``scipion.conf`` file to the folder where the Gctf is installed. Depending on your CUDA version and GPU card compute capability you might want to change the default binary from ``Gctf_v1.18_sm30-75_cu10.1`` to a different one by explicitly setting *GCTF* variable. If you need to use CUDA different from the one used during Scipion installation (defined by CUDA_LIB), you can add *GCTF_CUDA_LIB* variable to the config file. Various binaries can be downloaded from the official Gctf website.
+- Gctf binaries will be installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/gctf-1.18``, if you want to change it, set *GCTF_HOME* in ``scipion.conf`` file to the folder where the Gctf is installed. Depending on your CUDA version and GPU card compute capability you might want to change the default binary from ``Gctf_v1.18_sm30-75_cu10.1`` to a different one by explicitly setting *GCTF* variable.
+- If you need to use CUDA different from the one used during Scipion installation (defined by *CUDA_LIB*), you can add *GCTF_CUDA_LIB* variable to the config file. Various binaries can be downloaded from the official Gctf website.
 
 To check the installation, simply run one of the following Scipion tests: 
 
@@ -58,6 +58,7 @@ To check the installation, simply run one of the following Scipion tests:
 
    scipion test gctf.tests.test_protocols_gctf.TestGctfRefine
    scipion test gctf.tests.test_protocols_gctf.TestGctf
+   scipion tests gctf.tests.test_protocols_gctf_ts.TestGctfTs
 
 Supported versions
 ------------------
