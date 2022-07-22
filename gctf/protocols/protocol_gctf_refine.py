@@ -414,6 +414,10 @@ class ProtGctfRefine(ProtParticles):
         micPath = self._getTmpPath(pwutils.removeBaseExt(micFn))
         # We convert the input micrograph on demand if not in .mrc
 
+        if not os.path.exists(micFn):
+            self.error("Missing input micrograph: %s. Skipping..." % micFn)
+            return
+
         downFactor = self.ctfDownFactor.get()
         ih = emlib.image.ImageHandler()
         micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
@@ -485,8 +489,7 @@ class ProtGctfRefine(ProtParticles):
         self._rowCounter = 0
 
         def _newMic(micFn):
-            micBase = pwutils.removeBaseExt(micFn)
-            ctfFn = self._getCtfLocalOutPath(micBase)
+            ctfFn = self._getCtfLocalOutPath(micFn)
             self._rowCounter = 0
             if os.path.exists(ctfFn):
                 self._rowList = Table(fileName=ctfFn, tableName='')
@@ -515,7 +518,7 @@ class ProtGctfRefine(ProtParticles):
         if self.useInputCtf and not self._getCtfs:
             errors.append("Please provide input CTFs for refinement.")
 
-        if self.applyShift and not self.inputParticles.get().hasAlignment():
+        if self.applyShifts and not self.inputParticles.get().hasAlignment():
             errors.append("Input particles do not have alignment info, "
                           "cannot apply shifts")
 
