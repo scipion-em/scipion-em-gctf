@@ -72,6 +72,11 @@ class ProtGctf(ProtCTFMicrographs):
             for mic in micList:
                 micFn = mic.getFileName()
                 # We convert the input micrograph on demand if not in .mrc
+
+                if not os.path.exists(micFn):
+                    self.error("Missing input micrograph: %s. Skipping..." % micFn)
+                    continue
+
                 downFactor = self.ctfDownFactor.get()
                 micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
 
@@ -82,7 +87,10 @@ class ProtGctf(ProtCTFMicrographs):
                     sps = self._params['scannedPixelSize'] * downFactor
                     kwargs['scannedPixelSize'] = sps
                 else:
-                    ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
+                    if micFn.endswith('.mrc'):
+                        pwutils.createAbsLink(os.path.abspath(micFn), micFnMrc)
+                    else:
+                        ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
             program, args = self._gctfProgram.getCommand(**kwargs)
             args += ' %s/*.mrc' % micPath
@@ -93,6 +101,10 @@ class ProtGctf(ProtCTFMicrographs):
 
             for mic in micList:
                 micFn = mic.getFileName()
+
+                if not os.path.exists(micFn):
+                    continue
+
                 micBase = pwutils.removeBaseExt(micFn)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
@@ -114,7 +126,7 @@ class ProtGctf(ProtCTFMicrographs):
             pwutils.cleanPath(micPath)
 
         except:
-            print("ERROR: Gctf has failed on %s/*.mrc" % micPath)
+            self.error("ERROR: Gctf has failed for %s/*.mrc" % micPath)
             import traceback
             traceback.print_exc()
 

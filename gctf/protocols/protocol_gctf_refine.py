@@ -27,6 +27,7 @@
 import os
 from collections import OrderedDict
 from enum import Enum
+from emtable import Table
 
 import pyworkflow.utils as pwutils
 import pyworkflow.protocol.params as params
@@ -34,7 +35,6 @@ from pyworkflow.constants import PROD
 from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pwem.constants import RELATION_CTF
 from pwem import emlib
-import pwem.emlib.metadata as md
 from pwem.protocols import EMProtocol, ProtParticles
 from pwem.objects import SetOfParticles
 
@@ -325,27 +325,20 @@ class ProtGctfRefine(ProtParticles):
     def _createMicDict(self):
         """ Create a dictionary with all micrographs that
          are both in the input micrographs set and there
-         are particles belonging to it.
-         micName will be the key to that dict.
+         are particles from the input set belonging to it.
+
+         {micName:fileName}
          """
         inputParticles = self.inputParticles.get()
-        firstCoord = inputParticles.getFirstItem().getCoordinate()
-        self.hasMicName = firstCoord.getMicName() is not None
-        inputMicDict = {mic.getMicName(): mic.clone()
+        inputMicDict = {mic.getMicName(): mic.getFileName()
                         for mic in self._getMicrographs()}
-        # Check now which if these mics have particles belonging
-        self.micDict = OrderedDict()
-        # match the mic from coord with micDict
-        lastMicId = None
-        # TODO: If this loop is too expensive for very large input datasets,
-        # we could consider using the aggregate functions in the mapper
-        for particle in inputParticles.iterItems(orderBy='_micId'):
-            micId = particle.getMicId()
-            if micId != lastMicId:  # Do no repeat check when this is the same mic
-                micName = particle.getCoordinate().getMicName()
-                if micName in inputMicDict:
-                    self.micDict[micName] = inputMicDict[micName]
-                lastMicId = micId
+
+        # Check now which of these mics have related particles 
+        micNames = inputParticles.aggregate(["COUNT"], "_coordinate._micName", 
+                                            ["_coordinate._micName"])
+        micNames = [mic["_coordinate._micName"] for mic in micNames]
+        keys = set(micNames).intersection(set(inputMicDict.keys()))
+        self.micDict = OrderedDict([(key, inputMicDict[key]) for key in keys])
 
     def _insertAllSteps(self):
         self._createMicDict()
@@ -355,8 +348,8 @@ class ProtGctfRefine(ProtParticles):
         convIdDeps = [self._insertFunctionStep('convertInputStep')]
         refineDeps = []
 
-        for micName, mic in self.micDict.items():
-            stepId = self._insertFunctionStep('refineCtfStep', mic.getFileName(), micName,
+        for micName, micFn in self.micDict.items():
+            stepId = self._insertFunctionStep('refineCtfStep', micFn, micName,
                                               prerequisites=convIdDeps)
             refineDeps.append(stepId)
 
@@ -369,20 +362,19 @@ class ProtGctfRefine(ProtParticles):
         lastMicId = None
 
         for particle in inputParts.iterItems(orderBy=['_micId', 'id']):
-            coord = particle.getCoordinate()
             micId = particle.getMicId()
-            micName = coord.getMicName()
+            micName = particle.getCoordinate().getMicName()
 
             if micId != lastMicId:  # Do no repeat check when this is the same mic
-                mic = self.micDict.get(micName, None)
-                if mic is None:
-                    print("Skipping all particles from micrograph, "
-                          "key %s not found" % micName)
+                micFn = self.micDict.get(micName, None)
+                if micFn is None:
+                    self.warning("Skipping all particles from micrograph %s, "
+                                 "corresponding micrograph not found" % micName)
                 else:
-                    newMicCallback(mic)  # Notify about a new micrograph found
+                    newMicCallback(micFn)  # Notify about a new micrograph found
                 lastMicId = micId
 
-            if mic is not None:
+            if micFn is not None:
                 yield particle
 
     def convertInputStep(self):
@@ -393,27 +385,27 @@ class ProtGctfRefine(ProtParticles):
         scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
         doScale = abs(scale - 1.0 > 0.00001)
         if doScale:
-            print("Scaling coordinates by a factor *%0.2f*" % scale)
+            self.info("Scaling coordinates by a factor *%0.2f*" % scale)
 
         self._lastWriter = None
         coordDir = self._getTmpPath()
 
-        def _newMic(mic):
+        def _newMic(micFn):
             if self._lastWriter:
                 self._lastWriter.close()
-            micBase = pwutils.removeBaseExt(mic.getFileName())
+            micBase = pwutils.removeBaseExt(micFn)
             posFn = os.path.join(coordDir, micBase, micBase + '_coords.star')
             self._lastWriter = CoordinatesWriter(posFn)
 
         for particle in self._iterParticlesMic(newMicCallback=_newMic):
             coord = particle.getCoordinate()
-            x, y = coord.getPosition()
             if self.applyShifts:
                 shifts = getShifts(particle.getTransform(), alignType)
-                x, y = x - int(shifts[0]), y - int(shifts[1])
+                coord.shiftX(-int(shifts[0]))
+                coord.shiftY(-int(shifts[1]))
             if doScale:
-                x, y = x * scale, y * scale
-            self._lastWriter.writeCoord(x, y)
+                coord.scale(scale)
+            self._lastWriter.writeCoord(coord.getPosition())
 
         if self._lastWriter:
             self._lastWriter.close()  # Close file writing for last mic
@@ -421,6 +413,10 @@ class ProtGctfRefine(ProtParticles):
     def refineCtfStep(self, micFn, micKey):
         micPath = self._getTmpPath(pwutils.removeBaseExt(micFn))
         # We convert the input micrograph on demand if not in .mrc
+
+        if not os.path.exists(micFn):
+            self.error("Missing input micrograph: %s. Skipping..." % micFn)
+            return
 
         downFactor = self.ctfDownFactor.get()
         ih = emlib.image.ImageHandler()
@@ -433,34 +429,37 @@ class ProtGctfRefine(ProtParticles):
             sps = self.inputMicrographs.get().getScannedPixelSize() * downFactor
             self._params['scannedPixelSize'] = sps
         else:
-            ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
+            if micFn.endswith('.mrc'):
+                pwutils.createAbsLink(os.path.abspath(micFn), micFnMrc)
+            else:
+                ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
         # Refine input CTFs, match ctf by micName
         self._args_refine = ""
         if self.useInputCtf and self.ctfRelations.hasValue():
             ctfs = self._getCtfs()
 
-            for ctf in ctfs:
-                ctfMicName = ctf.getMicrograph().getMicName()
-                ctfMicId = ctf.getMicrograph().getObjId()
-                if micKey == ctfMicName or micKey == ctfMicId:
-                    # add CTF refine options
-                    self._params.update({'refine_input_ctf': 1,
-                                         'defU_init': ctf.getDefocusU(),
-                                         'defV_init': ctf.getDefocusV(),
-                                         'defA_init': ctf.getDefocusAngle(),
-                                         'B_init': self.bfactor.get()
-                                         })
-                    self._args_refine += "--refine_input_ctf %d " % self._params['refine_input_ctf']
-                    self._args_refine += "--defU_init %f " % self._params['defU_init']
-                    self._args_refine += "--defV_init %f " % self._params['defV_init']
-                    self._args_refine += "--defA_init %f " % self._params['defA_init']
-                    self._args_refine += "--B_init %f " % self._params['B_init']
-                    self._args_refine += "--defU_err %f " % self.defUerr.get()
-                    self._args_refine += "--defV_err %f " % self.defVerr.get()
-                    self._args_refine += "--defA_err %f " % self.defAerr.get()
-                    self._args_refine += "--B_err %f " % self.Berr.get()
-                    break
+            ctf = ctfs.iterItems(where="_micObj._micName=='%s'" % micKey, iterate=False)
+            if ctf:
+                # add CTF refine options
+                self._params.update({'refine_input_ctf': 1,
+                                     'defU_init': ctf[0].getDefocusU(),
+                                     'defV_init': ctf[0].getDefocusV(),
+                                     'defA_init': ctf[0].getDefocusAngle(),
+                                     'B_init': self.bfactor.get()
+                                     })
+                self._args_refine += "--refine_input_ctf %d " % self._params['refine_input_ctf']
+                self._args_refine += "--defU_init %f " % self._params['defU_init']
+                self._args_refine += "--defV_init %f " % self._params['defV_init']
+                self._args_refine += "--defA_init %f " % self._params['defA_init']
+                self._args_refine += "--B_init %f " % self._params['B_init']
+                self._args_refine += "--defU_err %f " % self.defUerr.get()
+                self._args_refine += "--defV_err %f " % self.defVerr.get()
+                self._args_refine += "--defA_err %f " % self.defAerr.get()
+                self._args_refine += "--B_err %f " % self.Berr.get()
+            else:
+                self.warning("Skipping micrograph %s, CTF not found" % micKey)
+                return
 
         # Run Gctf refine
         try:
@@ -474,22 +473,11 @@ class ProtGctfRefine(ProtParticles):
             pwutils.cleanPath(micFnMrc)
     
             # move output from tmp to extra
-            micFnCtf = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'ctf'))
-            micFnCtfLog = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_gctf.log')
-            micFnCtfFit = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_EPA.log')
             micFnCtfLocal = os.path.join(micPath, pwutils.removeBaseExt(micFn) + '_local.star')
-    
-            micFnCtfOut = self._getPsdPath(micFn)
-            micFnCtfLogOut = self._getCtfOutPath(micFn)
-            micFnCtfFitOut = self._getCtfFitOutPath(micFn)
             micFnCtfLocalOut = self._getCtfLocalOutPath(micFn)
-    
-            pwutils.moveFile(micFnCtf, micFnCtfOut)
-            pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-            pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
             pwutils.moveFile(micFnCtfLocal, micFnCtfLocalOut)
         except:
-            print("ERROR: Gctf has failed on %s" % micFnMrc)
+            self.error("ERROR: Gctf has failed for %s" % micFnMrc)
             import traceback
             traceback.print_exc()
 
@@ -500,17 +488,16 @@ class ProtGctfRefine(ProtParticles):
         self._rowList = None
         self._rowCounter = 0
 
-        def _newMic(mic):
-            micBase = pwutils.removeBaseExt(mic.getFileName())
-            ctfFn = self._getCtfLocalOutPath(micBase)
+        def _newMic(micFn):
+            ctfFn = self._getCtfLocalOutPath(micFn)
             self._rowCounter = 0
             if os.path.exists(ctfFn):
-                self._rowList = [row.clone() for row in md.iterRows(ctfFn)]
+                self._rowList = Table(fileName=ctfFn, tableName='')
             else:
                 self._rowList = None
 
         for particle in self._iterParticlesMic(newMicCallback=_newMic):
-            if self._rowList is None:  # Ignore particles if not CTF
+            if self._rowList is None:  # Ignore particles with no CTF
                 continue
             newPart = particle.clone()
             row = self._rowList[self._rowCounter]
@@ -521,6 +508,10 @@ class ProtGctfRefine(ProtParticles):
         self._defineOutputs(**{outputs.outputParticles.name: partSet})
         self._defineTransformRelation(self.inputParticles, partSet)
 
+        if partSet.getSize() == 0:
+            raise Exception(pwutils.redStr("outputParticles has size zero, "
+                                           "please review processing steps above."))
+
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
@@ -530,6 +521,10 @@ class ProtGctfRefine(ProtParticles):
 
         if self.useInputCtf and not self._getCtfs:
             errors.append("Please provide input CTFs for refinement.")
+
+        if self.applyShifts and not self.inputParticles.get().hasAlignment():
+            errors.append("Input particles do not have alignment info, "
+                          "cannot apply shifts")
 
         return errors
 
