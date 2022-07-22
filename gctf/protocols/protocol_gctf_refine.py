@@ -508,6 +508,10 @@ class ProtGctfRefine(ProtParticles):
         self._defineOutputs(**{outputs.outputParticles.name: partSet})
         self._defineTransformRelation(self.inputParticles, partSet)
 
+        if partSet.getSize() == 0:
+            raise Exception(pwutils.redStr("outputParticles has size zero, "
+                                           "please review processing steps above."))
+
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
         errors = []
