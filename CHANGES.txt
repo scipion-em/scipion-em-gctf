@@ -2,6 +2,7 @@
     - use emtable to read ctf refine results
     - create symlink if input mic is already mrc
     - refactor ctf refinement protocol to speed-up and clean-up
+    - fix the bug with removeBaseExt applied twice (reported by @EstrellaFG)
 3.0.16 - add possible outputs class, fix bug when refining input ctf
 3.0.15 - Remove tomo dependency
 3.0.14 - use weakImport for tomo
