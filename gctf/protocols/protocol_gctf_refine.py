@@ -515,6 +515,10 @@ class ProtGctfRefine(ProtParticles):
         if self.useInputCtf and not self._getCtfs:
             errors.append("Please provide input CTFs for refinement.")
 
+        if self.applyShift and not self.inputParticles.get().hasAlignment():
+            errors.append("Input particles do not have alignment info, "
+                          "cannot apply shifts")
+
         return errors
 
     def _summary(self):
