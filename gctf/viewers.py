@@ -32,7 +32,9 @@ from pyworkflow.gui.project import ProjectWindow
 import pyworkflow.utils as pwutils
 from pyworkflow.viewer import Viewer, DESKTOP_TKINTER
 from pwem.viewers import EmPlotter, CtfView, showj
-from tomo.viewers.viewers_data import CtfEstimationTomoViewer
+
+with pwutils.weakImport('tomo'):
+    from tomo.viewers.viewers_data import CtfEstimationTomoViewer
 
 from . import Plugin
 from .protocols import ProtGctf, ProtTsGctf

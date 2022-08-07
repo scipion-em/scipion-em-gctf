@@ -1,3 +1,4 @@
+3.1.1: use weaktomo for viewers
 3.1:
     - use emtable to read ctf refine results
     - create symlink if input mic is already mrc
