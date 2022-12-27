@@ -27,6 +27,8 @@
 import os
 import re
 import numpy
+import logging
+logger = logging.getLogger(__name__)
 
 import pyworkflow.utils as pwutils
 from pwem.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
@@ -67,7 +69,7 @@ def parseGctfOutput(filename):
         f.close()
     else:
         result = None
-        print("Warning: Missing file: ", filename)
+        logger.warning(f"Warning: Missing file: {filename}")
 
     return result
 

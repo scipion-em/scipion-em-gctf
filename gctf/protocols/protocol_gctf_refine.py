@@ -383,7 +383,7 @@ class ProtGctfRefine(ProtParticles):
         inputMics = self._getMicrographs()
 
         scale = inputParts.getSamplingRate() / inputMics.getSamplingRate()
-        doScale = abs(scale - 1.0 > 0.00001)
+        doScale = abs(scale - 1.0) > 0.00001
         if doScale:
             self.info("Scaling coordinates by a factor *%0.2f*" % scale)
 
