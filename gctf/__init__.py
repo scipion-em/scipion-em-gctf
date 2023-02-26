@@ -41,7 +41,7 @@ class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
     _supportedVersions = ['1.06', '1.18']
-    _url = "https://www2.mrc-lmb.cam.ac.uk/download/gctf_gautomatch_cu10-1-tar-gz/"
+    _url = "https://github.com/scipion-em/scipion-em-gctf"
 
     @classmethod
     def _defineVariables(cls):

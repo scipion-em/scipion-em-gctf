@@ -97,7 +97,7 @@ class ProtTsGctf(ProtTsEstimateCTF):
             pwutils.moveFile(_getFile('_EPA.log'),
                              self._getExtraPath())
 
-        except Exception as ex:
+        except Exception:
             self.error("ERROR: Gctf has failed for %s" % tiFn)
 
     # --------------------------- INFO functions ------------------------------
