@@ -28,7 +28,7 @@ import os
 
 from pwem.protocols import EMProtocol, pwutils
 from pyworkflow.protocol import STEPS_PARALLEL
-from pyworkflow.constants import BETA
+from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
 
 from tomo.objects import CTFTomo
@@ -40,7 +40,7 @@ import gctf
 class ProtTsGctf(ProtTsEstimateCTF):
     """ CTF estimation on a set of tilt series using GCTF. """
     _label = 'tilt-series gctf'
-    _devStatus = BETA
+    _devStatus = PROD
 
     def __init__(self, **kwargs):
         EMProtocol.__init__(self, **kwargs)
