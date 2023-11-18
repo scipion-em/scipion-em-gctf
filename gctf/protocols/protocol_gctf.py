@@ -92,9 +92,9 @@ class ProtGctf(ProtCTFMicrographs):
                     else:
                         ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
-            program, args = self._gctfProgram.getCommand(**kwargs)
-            args += ' %s/*.mrc' % micPath
-            self.runJob(program, args)  # , env=gctf.Plugin.getEnviron())
+            program, params = self._gctfProgram.getCommand(**kwargs)
+            params += ' %s/*.mrc' % micPath
+            self.runJob(program, params)
 
             def _getFile(micBase, suffix):
                 return os.path.join(micPath, micBase + suffix)
