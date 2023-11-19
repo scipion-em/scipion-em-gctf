@@ -40,7 +40,7 @@ from pwem.objects import SetOfParticles
 
 from .. import Plugin
 from ..convert import CoordinatesWriter, rowToCtfModel, getShifts
-from ..constants import *
+from ..constants import CCC, WEIGHT_BOTH
 
 
 class outputs(Enum):
@@ -509,8 +509,8 @@ class ProtGctfRefine(ProtParticles):
         self._defineTransformRelation(self.inputParticles, partSet)
 
         if partSet.getSize() == 0:
-            raise Exception(pwutils.redStr("outputParticles has size zero, "
-                                           "please review processing steps above."))
+            raise RuntimeError(pwutils.redStr("outputParticles has size zero, "
+                                              "please review processing steps above."))
 
     # -------------------------- INFO functions --------------------------------
     def _validate(self):
