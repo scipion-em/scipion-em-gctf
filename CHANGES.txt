@@ -1,3 +1,4 @@
+3.2: add conda environment with cuda 10.1 libs
 3.1.3: maintenance release
 3.1.2: fix doScale func, replace prints with logger
 3.1.1: use weaktomo for viewers

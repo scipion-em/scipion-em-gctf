@@ -33,8 +33,9 @@ import pyworkflow.protocol.params as params
 
 from tomo.objects import CTFTomo
 from tomo.protocols import ProtTsEstimateCTF
-from .program_gctf import ProgramGctf
-import gctf
+
+from gctf.protocols.program_gctf import ProgramGctf
+from gctf import Plugin
 
 
 class ProtTsGctf(ProtTsEstimateCTF):
@@ -80,7 +81,7 @@ class ProtTsGctf(ProtTsEstimateCTF):
             program, args = self._gctfProgram.getCommand(
                 scannedPixelSize=self._params['scannedPixelSize'])
             args += ' %s/*.mrc' % workingDir
-            self.runJob(program, args, env=gctf.Plugin.getEnviron())
+            self.runJob(program, args, env=Plugin.getEnviron())
 
             ext = self._gctfProgram.getExt()
 

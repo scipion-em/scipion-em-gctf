@@ -26,7 +26,8 @@
 
 GCTF = 'GCTF'
 GCTF_HOME = 'GCTF_HOME'
-GCTF_CUDA_LIB = 'GCTF_CUDA_LIB'
+GCTF_ENV_ACTIVATION = 'GCTF_ENV_ACTIVATION'
+DEFAULT_ACTIVATION_CMD = 'conda activate gctf'
 
 # Phase shift target type
 CCC = 0
