@@ -33,7 +33,8 @@ from pwem.objects import CTFModel
 from pwem.protocols import ProtCTFMicrographs
 
 
-from .program_gctf import ProgramGctf
+from gctf import Plugin
+from gctf.protocols.program_gctf import ProgramGctf
 
 
 class ProtGctf(ProtCTFMicrographs):
@@ -94,7 +95,7 @@ class ProtGctf(ProtCTFMicrographs):
 
             program, params = self._gctfProgram.getCommand(**kwargs)
             params += ' %s/*.mrc' % micPath
-            self.runJob(program, params)
+            self.runJob(program, params, env=Plugin.getEnviron())
 
             def _getFile(micBase, suffix):
                 return os.path.join(micPath, micBase + suffix)
