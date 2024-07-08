@@ -29,7 +29,7 @@ import os
 import pyworkflow.utils as pwutils
 from pwem.objects import CTFModel
 
-from .convert import readCtfModel
+from gctf.convert.convert import readCtfModel
 
 
 class GctfImportCTF:

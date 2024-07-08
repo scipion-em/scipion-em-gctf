@@ -27,9 +27,9 @@
 from pyworkflow.tests import DataSet
 from pyworkflow.utils import weakImport
 
-from .test_protocols_gctf import TestGctf, TestGctfRefine
+from gctf.tests.test_protocols_gctf import TestGctf
 with weakImport('tomo'):
-    from .test_protocols_gctf_ts import TestGctfTs
+    from gctf.tests.test_protocols_gctf_ts import TestGctfTs
 
 
 DataSet(name='tutorialDataImodCTF',

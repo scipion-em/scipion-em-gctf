@@ -26,13 +26,8 @@
 
 import os
 import re
-import numpy
 import logging
 logger = logging.getLogger(__name__)
-
-import pyworkflow.utils as pwutils
-from pwem.constants import ALIGN_2D, ALIGN_3D, ALIGN_PROJ, ALIGN_NONE
-from pwem.convert.transformations import translation_from_matrix
 
 
 def parseGctfOutput(filename):
@@ -94,83 +89,3 @@ def readCtfModel(ctfModel, filename):
     # Avoid creation of phaseShift
     if ctfPhaseShift != 0:
         ctfModel.setPhaseShift(ctfPhaseShift)
-
-
-class CoordinatesWriter:
-    """ Simple class to write coordinates (in star file as in Relion). """
-    HEADER = """
-data_
-
-loop_
-_rlnCoordinateX #1
-_rlnCoordinateY #2
-"""
-
-    def __init__(self, filename):
-        """ Filename where to write the coordinates. """
-        pwutils.makePath(os.path.dirname(filename))  # Ensure path exists
-        self._f = open(filename, 'w')
-        self._f.write(self.HEADER)
-
-    def writeCoord(self, pos):
-        self._f.write("%d %d\n" % (pos[0], pos[1]))
-
-    def close(self):
-        self._f.close()
-
-
-def rowToCtfModel(row, ctf):
-    """ Create a CTFModel from a row of a meta """
-    ctf.setDefocusU(row.rlnDefocusU)
-    ctf.setDefocusV(row.rlnDefocusV)
-    ctf.setDefocusAngle(row.rlnDefocusAngle)
-    ctf.setResolution(row.get('rlnCtfMaxResolution', 0))
-    ctf.setFitQuality(row.get('rlnCtfFigureOfMerit', 0))
-
-    if hasattr(row, 'rlnPhaseShift'):
-        ctf.setPhaseShift(row.rlnPhaseShift)
-    ctf.standardize()
-
-    return ctf
-
-
-def getShifts(transform, alignType):
-    """
-    is2D == True-> matrix is 2D (2D images alignment)
-            otherwise matrix is 3D (3D volume alignment or projection)
-    invTransform == True  -> for xmipp implies projection
-                          -> for xmipp implies alignment
-    """
-    if alignType == ALIGN_NONE:
-        return None
-
-    inverseTransform = alignType == ALIGN_PROJ
-    # only flip is meaningful if 2D case
-    # in that case the 2x2 determinant is negative
-    matrix = transform.getMatrix()
-    if alignType == ALIGN_2D:
-        # get 2x2 matrix and check if negative
-        flip = bool(numpy.linalg.det(matrix[0:2, 0:2]) < 0)
-        if flip:
-            matrix[0, :2] *= -1.  # invert only the first two columns keep x
-            matrix[2, 2] = 1.  # set 3D rot
-
-    elif alignType == ALIGN_3D:
-        flip = bool(numpy.linalg.det(matrix[0:3, 0:3]) < 0)
-        if flip:
-            matrix[0, :4] *= -1.  # now, invert first line including x
-            matrix[3, 3] = 1.  # set 3D rot
-
-    shifts = geometryFromMatrix(matrix, inverseTransform)
-
-    return shifts
-
-
-def geometryFromMatrix(matrix, inverseTransform):
-
-    if inverseTransform:
-        matrix = numpy.linalg.inv(matrix)
-        shifts = -translation_from_matrix(matrix)
-    else:
-        shifts = translation_from_matrix(matrix)
-    return shifts

@@ -72,22 +72,18 @@ To check the installation, simply run one of the following Scipion tests:
 
 .. code-block::
 
-   scipion test gctf.tests.test_protocols_gctf.TestGctfRefine
    scipion test gctf.tests.test_protocols_gctf.TestGctf
    scipion tests gctf.tests.test_protocols_gctf_ts.TestGctfTs
 
 Supported versions
 ------------------
 
-1.06 and 1.18.
-
-1.18 is a special version designed for VPP data, it does not support local/movie CTF refinement or validation options. 
+1.18
 
 Protocols
 ---------
 
 * ctf estimation
-* ctf refinement
 * tilt-series gctf
 
 References

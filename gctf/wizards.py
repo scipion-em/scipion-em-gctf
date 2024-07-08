@@ -27,13 +27,12 @@
 from pwem.constants import UNIT_ANGSTROM
 from pwem.wizards import CtfWizard, CtfDownsampleDialog, dialog
 
-from .protocols import ProtGctf, ProtGctfRefine
+from gctf.protocols import ProtGctf
 
 
 class GctfCTFWizard(CtfWizard):
-    _targets = [(ProtGctf, ['ctfDownFactor', 'lowRes', 'highRes']),
-                (ProtGctfRefine, ['ctfDownFactor', 'lowRes', 'highRes'])]
-    
+    _targets = [(ProtGctf, ['ctfDownFactor', 'lowRes', 'highRes'])]
+
     def _getParameters(self, protocol):
         label, value = self._getInputProtocol(self._targets, protocol)
         protParams = dict()
