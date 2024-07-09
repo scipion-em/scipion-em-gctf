@@ -24,5 +24,5 @@
 # *
 # **************************************************************************
 
-from .convert import *
-from .dataimport import *
+from gctf.convert.convert import *
+from gctf.convert.dataimport import *

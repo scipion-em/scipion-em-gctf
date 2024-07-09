@@ -41,15 +41,15 @@ _references = ['Zhang2016']
 class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
-    _supportedVersions = ['1.06', '1.18']
+    _supportedVersions = [V1_18]
     _url = "https://github.com/scipion-em/scipion-em-gctf"
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(GCTF_HOME, 'gctf-1.18',
+        cls._defineEmVar(GCTF_HOME, f'gctf-{V1_18}',
                          description='Path to the Gctf installation folder',
                          var_type=VarTypes.STRING)
-        cls._defineVar(GCTF, 'Gctf_v1.18_sm30-75_cu10.1',
+        cls._defineVar(GCTF, f'Gctf_v{V1_18}_sm30-75_cu10.1',
                        description='Gctf binary filename',
                        var_type=VarTypes.STRING)
         cls._defineVar(GCTF_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD,
@@ -83,11 +83,8 @@ class Plugin(pwem.Plugin):
         installCmd = CondaCommandDef("gctf", cls.getCondaActivationCmd())
         installCmd.create(extraCmds='-y cudatoolkit=10.1')
 
-        env.addPackage('gctf', version='1.06',
-                       tar='Gctf_v1.06.tgz')
-
-        env.addPackage('gctf', version='1.18',
-                       tar='Gctf_v1.18.tgz',
+        env.addPackage('gctf', version=V1_18,
+                       tar=f'Gctf_v{V1_18}.tgz',
                        commands=installCmd.getCommands(),
                        neededProgs=cls.getDependencies(),
                        default=True)

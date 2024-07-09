@@ -29,7 +29,8 @@ from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 from pyworkflow.utils import magentaStr
 
 from tomo.protocols import ProtImportTs
-from ..protocols import ProtTsGctf
+
+from gctf.protocols import ProtTsGctf
 
 
 class TestBase(BaseTest):
@@ -61,4 +62,5 @@ class TestGctfTs(TestBase):
         protCTF.inputTiltSeries.set(self.protImportTS.outputTiltSeries)
         self.launchProtocol(protCTF)
 
-        self.assertIsNotNone(protCTF.outputSetOfCTFTomoSeries, "SetOfCTFTomoSeries has not been produced.")
+        self.assertIsNotNone(protCTF.outputSetOfCTFTomoSeries,
+                             "SetOfCTFTomoSeries has not been produced.")

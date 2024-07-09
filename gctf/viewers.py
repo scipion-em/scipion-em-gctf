@@ -36,8 +36,7 @@ from pwem.viewers import EmPlotter, CtfView, showj
 with pwutils.weakImport('tomo'):
     from tomo.viewers.viewers_data import CtfEstimationTomoViewer
 
-from . import Plugin
-from .protocols import ProtGctf, ProtTsGctf
+from gctf.protocols import ProtGctf, ProtTsGctf
 
 
 def createCtfPlot(ctfSet, ctfId):
@@ -46,16 +45,14 @@ def createCtfPlot(ctfSet, ctfId):
     fn = pwutils.removeExt(psdFn) + "_EPA.log"
     xplotter = EmPlotter(windowTitle='CTF Fitting')
     plot_title = getPlotSubtitle(ctfModel)
-    a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF')
+    a = xplotter.createSubPlot(plot_title,
+                               'Resolution (Angstroms)', 'CTF')
     a.invert_xaxis()
-    version = Plugin.getActiveVersion()
-    curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]
+    curves = [1, 4, 5]
 
     for i in curves:
         _plotCurve(a, i, fn)
     xplotter.showLegend(['simulated CTF',
-                         # 'equiphase avg.',
-                         # 'bg', #  only for v1.18
                          'equiphase avg. - bg',
                          'cross correlation'])
     a.grid(True)
@@ -135,14 +132,11 @@ class CtfEstimationTomoViewerGctf(CtfEstimationTomoViewer):
         plot_title = '%s # %d\n' % (ctfSet.getTsId(), ctfId) + getPlotSubtitle(ctfModel)
         a = xplotter.createSubPlot(plot_title, 'Resolution (Angstroms)', 'CTF')
         a.invert_xaxis()
-        version = Plugin.getActiveVersion()
-        curves = [1, 4, 5] if version == '1.18' else [1, 3, 4]
+        curves = [1, 4, 5]
 
         for i in curves:
             _plotCurve(a, i, fn)
         xplotter.showLegend(['simulated CTF',
-                             # 'equiphase avg.',
-                             # 'bg', #  only for v1.18
                              'equiphase avg. - bg',
                              'cross correlation'])
         a.grid(True)
