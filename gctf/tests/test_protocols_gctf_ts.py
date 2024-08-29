@@ -62,5 +62,5 @@ class TestGctfTs(TestBase):
         protCTF.inputTiltSeries.set(self.protImportTS.outputTiltSeries)
         self.launchProtocol(protCTF)
 
-        self.assertIsNotNone(protCTF.outputSetOfCTFTomoSeries,
+        self.assertIsNotNone(protCTF.CTFs,
                              "SetOfCTFTomoSeries has not been produced.")
