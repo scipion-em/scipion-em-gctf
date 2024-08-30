@@ -26,11 +26,13 @@
 
 import os
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
-from pyworkflow.utils import magentaStr
+from pyworkflow.utils import magentaStr, cyanStr
 
 from tomo.protocols import ProtImportTs
 
 from gctf.protocols import ProtTsGctf
+from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
+from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
 
 
 class TestBase(BaseTest):
@@ -64,3 +66,70 @@ class TestGctfTs(TestBase):
 
         self.assertIsNotNone(protCTF.CTFs,
                              "SetOfCTFTomoSeries has not been produced.")
+
+class TestGctfTsTCL(TestBaseCentralizedLayer):
+    importedTs = None
+    unbinnedSRate = DataSetRe4STATuto.unbinnedPixSize.value
+
+    @classmethod
+    def setUpClass(cls):
+        setupTestProject(cls)
+        cls.ds = DataSet.getDataSet(RE4_STA_TUTO)
+        cls.runPrevProtocols()
+
+    @classmethod
+    def runPrevProtocols(cls):
+        print(cyanStr('--------------------------------- RUNNING PREVIOUS PROTOCOLS ---------------------------------'))
+        cls._runPreviousProtocols()
+        print(cyanStr('\n-------------------------------- PREVIOUS PROTOCOLS FINISHED ---------------------------------'))
+
+    @classmethod
+    def _runPreviousProtocols(cls):
+        cls.importedTs = cls._runImportTs()
+
+    @classmethod
+    def _runImportTs(cls, filesPattern=DataSetRe4STATuto.tsPattern.value,
+                     exclusionWords=DataSetRe4STATuto.exclusionWordsTs03ts54.value):
+        print(magentaStr("\n==> Importing the tilt series:"))
+        protImportTs = cls.newProtocol(ProtImportTs,
+                                       filesPath=cls.ds.getFile(DataSetRe4STATuto.tsPath.value),
+                                       filesPattern=filesPattern,
+                                       exclusionWords=exclusionWords,
+                                       anglesFrom=2,  # From tlt file
+                                       voltage=DataSetRe4STATuto.voltage.value,
+                                       magnification=DataSetRe4STATuto.magnification.value,
+                                       sphericalAberration=DataSetRe4STATuto.sphericalAb.value,
+                                       amplitudeContrast=DataSetRe4STATuto.amplitudeContrast.value,
+                                       samplingRate=cls.unbinnedSRate,
+                                       doseInitial=DataSetRe4STATuto.initialDose.value,
+                                       dosePerFrame=DataSetRe4STATuto.dosePerTiltImgWithTltFile.value,
+                                       tiltAxisAngle=DataSetRe4STATuto.tiltAxisAngle.value)
+
+        cls.launchProtocol(protImportTs)
+        tsImported = getattr(protImportTs, 'outputTiltSeries', None)
+        return tsImported
+
+    @classmethod
+    def _runEstimateCtf(cls, inTsSet, objLabel=None):
+        print(magentaStr("\n==> Running the CTF estimation:"))
+        protEstimateCtf = cls.newProtocol(ProtTsGctf,
+                                          inputTiltSeries=inTsSet,
+                                          lowRes=50,
+                                          highRes=4,
+                                          minDefocus=15000,
+                                          maxDefocus=50000)
+        if objLabel:
+            protEstimateCtf.setObjLabel(objLabel)
+        cls.launchProtocol(protEstimateCtf)
+        outTsSet = getattr(protEstimateCtf, protEstimateCtf._possibleOutputs.CTFs.name, None)
+        return outTsSet
+
+
+    def _checkCtfs(self, inCtfSet):
+        expectedSetSize = 2  # TS_03 and TS_54
+        self.checkCTFs(inCtfSet, expectedSetSize=expectedSetSize)
+
+    def testEstimateCtf01(self):
+        ctfs = self._runEstimateCtf(self.importedTs)
+        self._checkCtfs(ctfs)
+
