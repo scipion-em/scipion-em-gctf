@@ -27,7 +27,7 @@ from pyworkflow.utils import weakImport
 with weakImport('tomo'):
     import os
     from pyworkflow.tests import BaseTest, DataSet, setupTestProject
-    from pyworkflow.utils import magentaStr, cyanStr, weakImport
+    from pyworkflow.utils import magentaStr, cyanStr
 
     from tomo.protocols import ProtImportTs
 
