@@ -26,19 +26,21 @@
 
 import os
 from enum import Enum
-from pwem.convert.headers import MRC, getFileFormat
-from pwem.emlib import DT_FLOAT
-from pwem.emlib.image import ImageHandler
-from pwem.protocols import EMProtocol, pwutils
-from pyworkflow.object import Set
-from pyworkflow.protocol import STEPS_PARALLEL
+
+from pyworkflow.object import Set, Boolean
+from pyworkflow.protocol.constants import STEPS_PARALLEL
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
-from pyworkflow.utils import Message, makePath
+import pyworkflow.utils as pwutils
+from pwem.convert.headers import MRC, getFileFormat
+from pwem.emlib.image import DT_FLOAT, ImageHandler
+from pwem.protocols import EMProtocol
+
 from tomo.objects import CTFTomo, SetOfCTFTomoSeries, TiltImage, CTFTomoSeries
+from tomo.protocols.protocol_ts_estimate_ctf import createCtfParams
+
 from gctf.protocols.program_gctf import ProgramGctf
 from gctf import Plugin
-from tomo.protocols.protocol_ts_estimate_ctf import createCtfParams
 
 
 class TsGctfOutputs(Enum):
@@ -50,6 +52,8 @@ class ProtTsGctf(EMProtocol):
     _label = 'tilt-series gctf'
     _devStatus = PROD
     _possibleOutputs = TsGctfOutputs
+    recalculate = Boolean(False, objDoStore=False)  # Legacy Sep 2024: to fake old recalculate param
+    # that is still used in the ProtCTFMicrographs (to be removed)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -62,23 +66,11 @@ class ProtTsGctf(EMProtocol):
 
     # -------------------------- DEFINE param functions -----------------------
     def _defineParams(self, form):
-        form.addSection(label=Message.LABEL_INPUT)
+        form.addSection(label=pwutils.Message.LABEL_INPUT)
         form.addParam('inputTiltSeries', params.PointerParam,
                       important=True,
                       pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
                       label='Tilt series')
-        form.addParam('recalculate', params.BooleanParam,
-                      default=False,
-                      condition='recalculate',
-                      label="Do recalculate ctf?")
-        form.addParam('continueRun', params.PointerParam,
-                      allowsNull=True,
-                      condition='recalculate',
-                      label="Input previous run",
-                      pointerClass='ProtTsCtffind')
-        form.addHidden('sqliteFile', params.FileParam,
-                       condition='recalculate',
-                       allowsNull=True)
         form.addParam('ctfDownFactor', params.FloatParam,
                       default=1.,
                       label='CTF Downsampling factor',
@@ -98,8 +90,10 @@ class ProtTsGctf(EMProtocol):
         self._initialize()
         pIdList = []
         for tsId in self.tsDict.keys():
-            pidProcess = self._insertFunctionStep(self.processTiltSeriesStep, tsId, prerequisites=[])
-            pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, prerequisites=pidProcess)
+            pidProcess = self._insertFunctionStep(self.processTiltSeriesStep,
+                                                  tsId, prerequisites=[])
+            pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
+                                                       tsId, prerequisites=pidProcess)
             pIdList.append(pidCreateOutput)
         self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
 
@@ -118,7 +112,7 @@ class ProtTsGctf(EMProtocol):
         for ti in ts.iterItems():
             workingDir = self._getTiWorkingDir(ti)
             tiFnMrc = os.path.join(workingDir, self.getTiPrefix(ti) + '.mrc')
-            makePath(workingDir)
+            pwutils.makePath(workingDir)
             self._convertInputTi(ti, tiFnMrc)
             self._estimateCtf(workingDir, tiFnMrc)
 

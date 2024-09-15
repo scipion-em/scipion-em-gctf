@@ -27,6 +27,7 @@
 import os
 
 import pyworkflow.utils as pwutils
+from pyworkflow.object import Boolean
 from pyworkflow.constants import PROD
 from pwem import emlib
 from pwem.objects import CTFModel
@@ -45,6 +46,8 @@ class ProtGctf(ProtCTFMicrographs):
     """
     _label = 'ctf estimation'
     _devStatus = PROD
+    recalculate = Boolean(False, objDoStore=False)  # Legacy Sep 2024: to fake old recalculate param
+    # that is still used in the ProtCTFMicrographs (to be removed)
 
     def _defineCtfParamsDict(self):
         ProtCTFMicrographs._defineCtfParamsDict(self)
@@ -131,10 +134,6 @@ class ProtGctf(ProtCTFMicrographs):
             import traceback
             traceback.print_exc()
 
-    def _reEstimateCTF(self, mic, ctf):
-        """ Re-run gctf with required parameters """
-        self._estimateCtfList([mic], **self._getRecalCtfParamsDict(ctf))
-
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
         # sampling rate of the micrograph associated with the CTF
@@ -178,17 +177,6 @@ class ProtGctf(ProtCTFMicrographs):
         return [methods]
 
     # -------------------------- UTILS functions ------------------------------
-    def _getRecalCtfParamsDict(self, ctfModel):
-        values = [float(x) for x in ctfModel.getObjComment().split()]
-        sampling = ctfModel.getMicrograph().getSamplingRate()
-        return {
-            'step_focus': 500.0,
-            'lowRes': sampling / values[3],
-            'highRes': sampling / values[4],
-            'minDefocus': min([values[0], values[1]]),
-            'maxDefocus': max([values[0], values[1]])
-        }
-
     def _getPsdPath(self, micFn):
         micFnBase = pwutils.removeBaseExt(micFn)
         return self._getExtraPath(micFnBase + '_ctf.mrc')
