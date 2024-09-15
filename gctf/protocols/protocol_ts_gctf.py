@@ -25,44 +25,62 @@
 # **************************************************************************
 
 import os
-
+from enum import Enum
+from pwem.convert.headers import MRC, getFileFormat
+from pwem.emlib import DT_FLOAT
+from pwem.emlib.image import ImageHandler
 from pwem.protocols import EMProtocol, pwutils
+from pyworkflow.object import Set
 from pyworkflow.protocol import STEPS_PARALLEL
 from pyworkflow.constants import PROD
 import pyworkflow.protocol.params as params
-
-from tomo.objects import CTFTomo
-from tomo.protocols import ProtTsEstimateCTF
-
+from pyworkflow.utils import Message, makePath
+from tomo.objects import CTFTomo, SetOfCTFTomoSeries, TiltImage, CTFTomoSeries
 from gctf.protocols.program_gctf import ProgramGctf
 from gctf import Plugin
+from tomo.protocols.protocol_ts_estimate_ctf import createCtfParams
 
 
-class ProtTsGctf(ProtTsEstimateCTF):
+class TsGctfOutputs(Enum):
+    CTFs = SetOfCTFTomoSeries
+
+
+class ProtTsGctf(EMProtocol):
     """ CTF estimation on a set of tilt series using GCTF. """
     _label = 'tilt-series gctf'
     _devStatus = PROD
+    _possibleOutputs = TsGctfOutputs
 
     def __init__(self, **kwargs):
-        EMProtocol.__init__(self, **kwargs)
+        super().__init__(**kwargs)
         self.stepsExecutionMode = STEPS_PARALLEL
+        self._gctfProgram = None
+        self.inTsSet = None
+        self.tsDict = None
+        self._params = None
+        self.ih = None
 
     # -------------------------- DEFINE param functions -----------------------
-    def _initialize(self):
-        ProtTsEstimateCTF._initialize(self)
-        self._gctfProgram = ProgramGctf(self)
-
-    def _defineProcessParams(self, form):
-        form.addParam('recalculate', params.BooleanParam, default=False,
+    def _defineParams(self, form):
+        form.addSection(label=Message.LABEL_INPUT)
+        form.addParam('inputTiltSeries', params.PointerParam,
+                      important=True,
+                      pointerClass='SetOfTiltSeries, SetOfCTFTomoSeries',
+                      label='Tilt series')
+        form.addParam('recalculate', params.BooleanParam,
+                      default=False,
                       condition='recalculate',
                       label="Do recalculate ctf?")
-        form.addParam('continueRun', params.PointerParam, allowsNull=True,
-                      condition='recalculate', label="Input previous run",
+        form.addParam('continueRun', params.PointerParam,
+                      allowsNull=True,
+                      condition='recalculate',
+                      label="Input previous run",
                       pointerClass='ProtTsCtffind')
         form.addHidden('sqliteFile', params.FileParam,
                        condition='recalculate',
                        allowsNull=True)
-        form.addParam('ctfDownFactor', params.FloatParam, default=1.,
+        form.addParam('ctfDownFactor', params.FloatParam,
+                      default=1.,
                       label='CTF Downsampling factor',
                       help='Set to 1 for no downsampling. Non-integer downsample '
                            'factors are possible. This downsampling is only used '
@@ -76,7 +94,76 @@ class ProtTsGctf(ProtTsEstimateCTF):
         ProgramGctf.defineProcessParams(form)
 
     # --------------------------- STEPS functions ----------------------------
-    def _estimateCtf(self, workingDir, tiFn, ti):
+    def _insertAllSteps(self):
+        self._initialize()
+        pIdList = []
+        for tsId in self.tsDict.keys():
+            pidProcess = self._insertFunctionStep(self.processTiltSeriesStep, tsId, prerequisites=[])
+            pidCreateOutput = self._insertFunctionStep(self.createOutputStep, tsId, prerequisites=pidProcess)
+            pIdList.append(pidCreateOutput)
+        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
+
+    def _initialize(self):
+        self.ih = ImageHandler()
+        self.inTsSet = self._getInputTs()
+        self._params = createCtfParams(self.inTsSet, self.windowSize.get(),
+                                       self.lowRes.get(), self.highRes.get(),
+                                       self.minDefocus.get(), self.maxDefocus.get(),
+                                       downFactor=self.getAttributeValue('ctfDownFactor', 1.0))
+        self._gctfProgram = ProgramGctf(self)
+        self.tsDict = {ts.getTsId(): ts.clone(ignoreAttrs=[]) for ts in self.inTsSet.iterItems()}
+
+    def processTiltSeriesStep(self, tsId):
+        ts = self.tsDict[tsId]
+        for ti in ts.iterItems():
+            workingDir = self._getTiWorkingDir(ti)
+            tiFnMrc = os.path.join(workingDir, self.getTiPrefix(ti) + '.mrc')
+            makePath(workingDir)
+            self._convertInputTi(ti, tiFnMrc)
+            self._estimateCtf(workingDir, tiFnMrc)
+
+    def createOutputStep(self, tsId):
+        with self._lock:
+            outCtfSet = self.getOutputCtfTomoSet()
+            # Generate the current CTF tomo series item
+            ts = self.tsDict[tsId]
+            newCTFTomoSeries = CTFTomoSeries()
+            newCTFTomoSeries.copyInfo(ts)
+            newCTFTomoSeries.setTiltSeries(ts)
+            newCTFTomoSeries.setObjId(ts.getObjId())
+            newCTFTomoSeries.setTsId(ts.getTsId())
+            outCtfSet.append(newCTFTomoSeries)
+
+            # Generate the ti CTF and populate the corresponding CTF tomo series
+            for i, tiltImage in enumerate(ts.iterItems()):
+                ctfTomo = self.getCtf(tiltImage)
+                ctfTomo.setIndex(tiltImage.getIndex())
+                ctfTomo.setAcquisitionOrder(tiltImage.getAcquisitionOrder())
+                newCTFTomoSeries.append(ctfTomo)
+
+            outCtfSet.update(newCTFTomoSeries)
+            self._store()
+
+    def closeOutputSetsStep(self):
+        self._closeOutputSet()
+
+    # --------------------------- INFO functions ------------------------------
+    def _validate(self):
+        errors = []
+        return errors
+
+    # --------------------------- UTILS functions ----------------------------
+    def getCtf(self, ti: TiltImage) -> CTFTomo:
+        """ Parse the CTF object estimated for this Tilt-Image. """
+        prefix = self.getTiPrefix(ti)
+        psd = self._getExtraPath(prefix + '_ctf.mrc')
+        outCtf = self._getTmpPath(prefix + '_gctf.log')
+        ctfModel = self._gctfProgram.parseOutputAsCtf(outCtf, psdFile=psd)
+        ctfTomo = CTFTomo.ctfModelToCtfTomo(ctfModel)
+
+        return ctfTomo
+
+    def _estimateCtf(self, workingDir, tiFn):
         try:
             program, args = self._gctfProgram.getCommand(
                 scannedPixelSize=self._params['scannedPixelSize'])
@@ -101,19 +188,56 @@ class ProtTsGctf(ProtTsEstimateCTF):
         except Exception:
             self.error("ERROR: Gctf has failed for %s" % tiFn)
 
-    # --------------------------- INFO functions ------------------------------
-    def _validate(self):
-        errors = []
+    def _getInputTs(self, pointer=False):
+        if isinstance(self.inputTiltSeries.get(), SetOfCTFTomoSeries):
+            return self.inputTiltSeries.get().getSetOfTiltSeries(pointer=pointer)
+        return self.inputTiltSeries.get() if not pointer else self.inputTiltSeries
 
-        return errors
+    def _convertInputTi(self, ti, tiFn):
+        """ This function will convert the input tilt-image
+        taking into account the downFactor.
+        It can be overwritten in subclasses if another behaviour is required.
+        """
+        downFactor = self.ctfDownFactor.get()
 
-    # --------------------------- UTILS functions ----------------------------
-    def getCtf(self, ti):
-        """ Parse the CTF object estimated for this Tilt-Image. """
-        prefix = self.getTiPrefix(ti)
-        psd = self._getExtraPath(prefix + '_ctf.mrc')
-        outCtf = self._getTmpPath(prefix + '_gctf.log')
-        ctfModel = self._gctfProgram.parseOutputAsCtf(outCtf, psdFile=psd)
-        ctfTomo = CTFTomo.ctfModelToCtfTomo(ctfModel)
+        if not self.ih.existsLocation(ti):
+            raise Exception("Missing input file: %s" % ti)
 
-        return ctfTomo
+        tiFName = ti.getFileName()
+        # Make xmipp considers the input object as TS to work as expected
+        if getFileFormat(tiFName) == MRC:
+            tiFName = tiFName.split(':')[0] + ':mrcs'
+        tiFName = str(ti.getIndex()) + '@' + tiFName
+
+        if downFactor != 1:
+            self.ih.scaleFourier(tiFName, tiFn, downFactor)
+        else:
+            self.ih.convert(tiFName, tiFn, DT_FLOAT)
+
+    @staticmethod
+    def getTiRoot(ti: TiltImage):
+        return '%s_%02d' % (ti.getTsId(), ti.getObjId())
+
+    def _getTiWorkingDir(self, ti: TiltImage):
+        return self._getTmpPath(self.getTiRoot(ti))
+
+    @staticmethod
+    def getTiPrefix(ti: TiltImage):
+        return '%s_%03d' % (ti.getTsId(), ti.getObjId())
+
+    def getOutputCtfTomoSet(self) -> SetOfCTFTomoSeries:
+        outCtfSet = getattr(self, TsGctfOutputs.CTFs.name, None)
+        if outCtfSet:
+            outCtfSet.enableAppend()
+        else:
+            outCtfSet = SetOfCTFTomoSeries.create(self._getPath(), template='ctfTomoSeries%s.sqlite')
+            outCtfSet.setSetOfTiltSeries(self.inTsSet)
+            outCtfSet.setStreamState(Set.STREAM_OPEN)
+            self._defineOutputs(**{self._possibleOutputs.CTFs.name: outCtfSet})
+            self._defineSourceRelation(self.inTsSet, outCtfSet)
+        return outCtfSet
+
+    def getCtfParamsDict(self):
+        """ Return a copy of the global params dict,
+        to avoid overwriting values. """
+        return self._params
