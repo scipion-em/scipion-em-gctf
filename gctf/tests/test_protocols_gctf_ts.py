@@ -23,17 +23,18 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
+import os
 from pyworkflow.utils import weakImport
+
 with weakImport('tomo'):
-    import os
     from pyworkflow.tests import BaseTest, DataSet, setupTestProject
     from pyworkflow.utils import magentaStr, cyanStr
 
     from tomo.protocols import ProtImportTs
-
-    from gctf.protocols import ProtTsGctf
     from tomo.tests import RE4_STA_TUTO, DataSetRe4STATuto
     from tomo.tests.test_base_centralized_layer import TestBaseCentralizedLayer
+
+    from gctf.protocols import ProtTsGctf
 
 
     class TestBase(BaseTest):
@@ -125,7 +126,6 @@ with weakImport('tomo'):
             outTsSet = getattr(protEstimateCtf, protEstimateCtf._possibleOutputs.CTFs.name, None)
             return outTsSet
 
-
         def _checkCtfs(self, inCtfSet):
             expectedSetSize = 2  # TS_03 and TS_54
             self.checkCTFs(inCtfSet, expectedSetSize=expectedSetSize)
@@ -133,4 +133,3 @@ with weakImport('tomo'):
         def testEstimateCtf01(self):
             ctfs = self._runEstimateCtf(self.importedTs)
             self._checkCtfs(ctfs)
-

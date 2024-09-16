@@ -49,16 +49,7 @@ class ProgramGctf:
     def defineInputParams(cls, form):
         """ Define input parameters from this program into the given form. """
         form.addSection(label='Input')
-        form.addParam('recalculate', params.BooleanParam, default=False,
-                      condition='recalculate',
-                      label="Do recalculate ctf?")
-        form.addParam('continueRun', params.PointerParam, allowsNull=True,
-                      condition='recalculate', label="Input previous run",
-                      pointerClass='ProtGctf')
-        form.addHidden('sqliteFile', params.FileParam, condition='recalculate',
-                       allowsNull=True)
         form.addParam('inputMicrographs', params.PointerParam, important=True,
-                      condition='not recalculate',
                       label='Input micrographs',
                       pointerClass='SetOfMicrographs')
         form.addParam('ctfDownFactor', params.FloatParam, default=1.,
@@ -75,12 +66,12 @@ class ProgramGctf:
     @classmethod
     def defineProcessParams(cls, form):
         form.addParam('windowSize', params.IntParam, default=1024,
-                      label='Box size (px)', condition='not recalculate',
+                      label='Box size (px)',
                       help='Boxsize in pixels to be used for FFT, 512 or '
                            '1024 highly recommended')
 
         group = form.addGroup('Search limits')
-        line = group.addLine('Resolution (A)', condition='not recalculate',
+        line = group.addLine('Resolution (A)',
                              help='The CTF model will be fit to regions '
                                   'of the amplitude spectrum corresponding '
                                   'to this range of resolution.')
@@ -88,7 +79,6 @@ class ProgramGctf:
         line.addParam('highRes', params.FloatParam, default=4., label='Max')
 
         line = group.addLine('Defocus search range (A)',
-                             condition='not recalculate',
                              help='Select _minimum_ and _maximum_ values for '
                                   'defocus search range (in A). Underfocus'
                                   ' is represented by a positive number.')
