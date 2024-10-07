@@ -26,13 +26,10 @@
 
 GCTF = 'GCTF'
 GCTF_HOME = 'GCTF_HOME'
-GCTF_CUDA_LIB = 'GCTF_CUDA_LIB'
+GCTF_ENV_ACTIVATION = 'GCTF_ENV_ACTIVATION'
+DEFAULT_ACTIVATION_CMD = 'conda activate gctf'
+V1_18 = "1.18"
 
 # Phase shift target type
 CCC = 0
 MAXRES = 1
-
-# Weighting type for local CTF
-WEIGHT_EQUAL = 0
-WEIGHT_DIST = 1
-WEIGHT_BOTH = 2

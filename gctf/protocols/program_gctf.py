@@ -29,9 +29,9 @@
 from pwem.objects import CTFModel
 import pyworkflow.protocol.params as params
 
-from .. import Plugin
-from ..convert import readCtfModel, parseGctfOutput
-from ..constants import CCC
+from gctf import Plugin
+from gctf.convert.convert import readCtfModel, parseGctfOutput
+from gctf.constants import CCC
 
 
 class ProgramGctf:
@@ -43,25 +43,13 @@ class ProgramGctf:
     """
     def __init__(self, protocol):
         self._args, self._params = self._getArgs(protocol)  # Load general arguments
-        if self.isVersion118():
-            self._ext = '.pow' if not protocol.doEPA else '.epa'
-        else:
-            self._ext = '.ctf'
+        self._ext = '.pow' if not protocol.doEPA else '.epa'
 
     @classmethod
     def defineInputParams(cls, form):
         """ Define input parameters from this program into the given form. """
         form.addSection(label='Input')
-        form.addParam('recalculate', params.BooleanParam, default=False,
-                      condition='recalculate',
-                      label="Do recalculate ctf?")
-        form.addParam('continueRun', params.PointerParam, allowsNull=True,
-                      condition='recalculate', label="Input previous run",
-                      pointerClass='ProtGctf')
-        form.addHidden('sqliteFile', params.FileParam, condition='recalculate',
-                       allowsNull=True)
         form.addParam('inputMicrographs', params.PointerParam, important=True,
-                      condition='not recalculate',
                       label='Input micrographs',
                       pointerClass='SetOfMicrographs')
         form.addParam('ctfDownFactor', params.FloatParam, default=1.,
@@ -78,12 +66,12 @@ class ProgramGctf:
     @classmethod
     def defineProcessParams(cls, form):
         form.addParam('windowSize', params.IntParam, default=1024,
-                      label='Box size (px)', condition='not recalculate',
+                      label='Box size (px)',
                       help='Boxsize in pixels to be used for FFT, 512 or '
                            '1024 highly recommended')
 
         group = form.addGroup('Search limits')
-        line = group.addLine('Resolution (A)', condition='not recalculate',
+        line = group.addLine('Resolution (A)',
                              help='The CTF model will be fit to regions '
                                   'of the amplitude spectrum corresponding '
                                   'to this range of resolution.')
@@ -91,7 +79,6 @@ class ProgramGctf:
         line.addParam('highRes', params.FloatParam, default=4., label='Max')
 
         line = group.addLine('Defocus search range (A)',
-                             condition='not recalculate',
                              help='Select _minimum_ and _maximum_ values for '
                                   'defocus search range (in A). Underfocus'
                                   ' is represented by a positive number.')
@@ -157,14 +144,13 @@ class ProgramGctf:
                             'suggested 1/5 ~ 1/20 of window size in pixel, '
                             'e.g. 99 for 512 window')
 
-        if cls.isVersion118():
-            group.addParam('smoothResL', params.IntParam, default=1000,
-                           expertLevel=params.LEVEL_ADVANCED,
-                           condition='doEPA',
-                           label='Resolution for smoothing',
-                           help='Provide a reasonable resolution for low '
-                                'frequency background smoothing; 20 '
-                                'angstrom suggested, 10-50 is proper range')
+        group.addParam('smoothResL', params.IntParam, default=1000,
+                       expertLevel=params.LEVEL_ADVANCED,
+                       condition='doEPA',
+                       label='Resolution for smoothing',
+                       help='Provide a reasonable resolution for low '
+                            'frequency background smoothing; 20 '
+                            'angstrom suggested, 10-50 is proper range')
 
         form.addParam('bfactor', params.IntParam, default=150,
                       label="B-factor",
@@ -241,37 +227,28 @@ class ProgramGctf:
                             'The accuracy of CCC method might not be as '
                             'good, but it is more stable in general cases.')
 
-        if cls.isVersion118():
-            form.addParam('coSearchRefine', params.BooleanParam,
-                          default=False, condition='doPhShEst',
-                          label='Search and refine simultaneously?',
-                          help='Specify this option to do refinement during '
-                               'phase shift search. Default approach is to do '
-                               'refinement after search.')
-            form.addParam('refine2DT', params.IntParam,
-                          validators=[params.Range(1, 3, "value should be "
-                                                         "1, 2 or 3. ")],
-                          default=1, condition='doPhShEst',
-                          label='Refinement type',
-                          help='Refinement type: 1, 2, 3 allowed.\n NOTE:  '
-                               'This parameter is different from Target and is'
-                               'optional for different types of refinement algorithm, '
-                               'in general cases they work similar. In challenging '
-                               'case, they might converge to different results, '
-                               'try to see which works best in your case. '
-                               'My suggestion is running as default first, and '
-                               'then try new refinement on the micrographs '
-                               'which failed.')
+        form.addParam('coSearchRefine', params.BooleanParam,
+                      default=False, condition='doPhShEst',
+                      label='Search and refine simultaneously?',
+                      help='Specify this option to do refinement during '
+                           'phase shift search. Default approach is to do '
+                           'refinement after search.')
+        form.addParam('refine2DT', params.IntParam,
+                      validators=[params.Range(1, 3, "value should be "
+                                                     "1, 2 or 3. ")],
+                      default=1, condition='doPhShEst',
+                      label='Refinement type',
+                      help='Refinement type: 1, 2, 3 allowed.\n NOTE:  '
+                           'This parameter is different from Target and is'
+                           'optional for different types of refinement algorithm, '
+                           'in general cases they work similar. In challenging '
+                           'case, they might converge to different results, '
+                           'try to see which works best in your case. '
+                           'My suggestion is running as default first, and '
+                           'then try new refinement on the micrographs '
+                           'which failed.')
 
         form.addParallelSection(threads=1, mpi=1)
-
-    @classmethod
-    def getVersion(cls):
-        return Plugin.getActiveVersion()
-
-    @classmethod
-    def isVersion118(cls):
-        return cls.getVersion() in ['1.18']
 
     def getExt(self):
         return self._ext
@@ -336,10 +313,7 @@ class ProgramGctf:
         args += "--overlap %f " % protocol.overlap
         args += "--convsize %d " % protocol.convsize
         args += "--do_Hres_ref %d " % (1 if protocol.doHighRes else 0)
-
-        if self.isVersion118():
-            args += "--smooth_resL %d " % protocol.smoothResL
-
+        args += "--smooth_resL %d " % protocol.smoothResL
         args += "--EPA_oversmp %d " % protocol.EPAsmp
 
         if protocol.doPhShEst:
@@ -348,10 +322,9 @@ class ProgramGctf:
             args += "--phase_shift_S %f " % protocol.phaseShiftS
             args += "--phase_shift_T %d " % (1 + protocol.phaseShiftT.get())
 
-            if self.isVersion118():
-                args += ("--cosearch_refine_ps %d "
-                         % (1 if protocol.coSearchRefine else 0))
-                args += "--refine_2d_T %d " % protocol.refine2DT
+            args += ("--cosearch_refine_ps %d "
+                     % (1 if protocol.coSearchRefine else 0))
+            args += "--refine_2d_T %d " % protocol.refine2DT
 
         if protocol.doHighRes:
             args += "--Href_resL %0.3f " % protocol.HighResL

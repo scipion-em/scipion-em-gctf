@@ -49,29 +49,41 @@ b) Developer's version
 
       scipion installp -p /path/to/scipion-em-gctf --devel
 
-- Gctf binaries will be installed automatically with the plugin, but you can also link an existing installation. Default installation path assumed is ``software/em/gctf-1.18``, if you want to change it, set *GCTF_HOME* in ``scipion.conf`` file to the folder where the Gctf is installed. Depending on your CUDA version and GPU card compute capability you might want to change the default binary from ``Gctf_v1.18_sm30-75_cu10.1`` to a different one by explicitly setting *GCTF* variable.
-- If you need to use CUDA different from the one used during Scipion installation (defined by *CUDA_LIB*), you can add *GCTF_CUDA_LIB* variable to the config file. Various binaries can be downloaded from the official Gctf website.
+Configuration variables
+-----------------------
+*CONDA_ACTIVATION_CMD*: If undefined, it will rely on conda command being in the
+PATH (not recommended), which can lead to execution problems mixing scipion
+python with conda ones. One example of this could can be seen below but
+depending on your conda version and shell you will need something different:
+CONDA_ACTIVATION_CMD = eval "$(/extra/miniconda3/bin/conda shell.bash hook)"
 
+*GCTF_ENV_ACTIVATION* (default = conda activate gctf):
+Command to activate the Gctf environment. It will have cudatoolkit=10.1 installed.
+
+*GCTF_HOME* (default = software/em/gctf-1.18):
+Path to Gctf installation folder.
+
+*GCTF_BIN* (default = Gctf_v1.18_sm30-75_cu10.1):
+Binary to use.
+
+Verifying
+---------
 To check the installation, simply run one of the following Scipion tests: 
 
 .. code-block::
 
-   scipion test gctf.tests.test_protocols_gctf.TestGctfRefine
    scipion test gctf.tests.test_protocols_gctf.TestGctf
    scipion tests gctf.tests.test_protocols_gctf_ts.TestGctfTs
 
 Supported versions
 ------------------
 
-1.06 and 1.18.
-
-1.18 is a special version designed for VPP data, it does not support local/movie CTF refinement or validation options. 
+1.18
 
 Protocols
 ---------
 
 * ctf estimation
-* ctf refinement
 * tilt-series gctf
 
 References

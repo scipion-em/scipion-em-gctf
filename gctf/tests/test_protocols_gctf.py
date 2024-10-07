@@ -23,13 +23,11 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-from pwem.protocols import (ProtImportMicrographs, ProtImportParticles,
-                            ProtImportCTF)
+from pwem.protocols import ProtImportMicrographs, ProtImportParticles
 from pyworkflow.utils import magentaStr
 from pyworkflow.tests import BaseTest, DataSet, setupTestProject
 
-import gctf
-from gctf.protocols import ProtGctfRefine, ProtGctf
+from gctf.protocols import ProtGctf
 
 
 class TestGctfBase(BaseTest):
@@ -151,66 +149,3 @@ class TestGctf(TestGctfBase):
             self.assertAlmostEquals(
                 ctfModel.getMicrograph().getSamplingRate(),
                 1.237, delta=0.001)
-
-
-class TestGctfRefine(TestGctfBase):
-    @classmethod
-    def setUpClass(cls):
-        setupTestProject(cls)
-        TestGctfBase.setData()
-        print(magentaStr("\n==> Importing data - particles (no alignment):"))
-        cls.protImport1 = cls.runImportParticlesBPV(cls.partFn1,
-                                                    label='import particles (no alignment)')
-        print(magentaStr("\n==> Importing data - particles (with alignment):"))
-        cls.protImport2 = cls.runImportParticlesBPV(cls.partFn2,
-                                                    label='import particles (with alignment)')
-        print(magentaStr("\n==> Importing data - micrographs:"))
-        cls.protImportMics = cls.runImportMicrographBPV(cls.micFn)
-
-    def testRunGctf1(self):
-        if gctf.Plugin.getActiveVersion() in ['1.18']:
-            print('Gctf version 1.18 does not support local refinement.'
-                  ' Skipping test..')
-        else:
-            print(magentaStr("\n==> Testing gctf - local refinement:"))
-            protCTF = ProtGctfRefine(objLabel='gCTF local refinement')
-            protCTF.inputParticles.set(self.protImport1.outputParticles)
-            protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
-            protCTF.ctfDownFactor.set(2)
-
-            self.proj.launchProtocol(protCTF, wait=True)
-            self.assertIsNotNone(protCTF.outputParticles,
-                                 "SetOfParticles has not been produced.")
-            self.assertEqual(protCTF.inputParticles.get().getSize(),
-                             protCTF.outputParticles.getSize())
-
-    def testRunGctf2(self):
-        if gctf.Plugin.getActiveVersion() in ['1.18']:
-            print('Gctf version 1.18 does not support local refinement.'
-                  ' Skipping test..')
-        else:
-            print(magentaStr("\n==> Testing gctf - local refinement (with input CTFs):"))
-            protCTF = ProtGctfRefine(objLabel='gCTF local refinement (with input CTFs)')
-            protCTF.inputParticles.set(self.protImport2.outputParticles)
-            protCTF.ctfDownFactor.set(2)
-            protCTF.useInputCtf.set(True)
-            protCTF.applyShifts.set(True)
-            protCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
-
-            # run import CTF protocol
-            protImportCTF = self.newProtocol(ProtImportCTF,
-                                             objLabel='import CTF from scipion',
-                                             importFrom=ProtImportCTF.IMPORT_FROM_SCIPION,
-                                             filesPath=self.ctfFn)
-            protImportCTF.inputMicrographs.set(self.protImportMics.outputMicrographs)
-            self.launchProtocol(protImportCTF)
-            self.assertIsNotNone(protImportCTF.outputCTF,
-                                 "There was a problem when importing ctfs.")
-
-            protCTF.ctfRelations.set(protImportCTF.outputCTF)
-
-            self.proj.launchProtocol(protCTF, wait=True)
-            self.assertIsNotNone(protCTF.outputParticles,
-                                 "SetOfParticles has not been produced.")
-            self.assertEqual(protCTF.inputParticles.get().getSize(),
-                             protCTF.outputParticles.getSize())

@@ -29,7 +29,7 @@ import os
 import pyworkflow.utils as pwutils
 from pwem.objects import CTFModel
 
-from .convert import readCtfModel
+from gctf.convert.convert import readCtfModel
 
 
 class GctfImportCTF:
@@ -43,11 +43,20 @@ class GctfImportCTF:
         ctf.setMicrograph(mic)
         readCtfModel(ctf, fileName)
         
-        # Try to find the given PSD file associated with the cttfind log file
-        # we handle special cases of .ctf extension and _ctffindX prefix for Relion runs
         fnBase = pwutils.removeExt(fileName)
-        for suffix in ['_psd.mrc', '.mrc', '.ctf']:
-            psdPrefixes = [fnBase, 
+        psdFile = self._findPsdFile(fnBase)
+        ctf.setPsdFile(psdFile)
+
+        return ctf
+
+    @staticmethod
+    def _findPsdFile(fnBase):
+        """ Try to find the given PSD file associated with the cttfind log file
+        We handle special cases of .ctf extension and _ctffindX prefix for Relion runs
+        """
+        for suffix in ['_psd.mrc', '.mrc', '_ctf.mrcs',
+                       '.mrcs', '.ctf']:
+            psdPrefixes = [fnBase,
                            fnBase.replace('_ctffind3', ''),
                            fnBase.replace('_gctf', '')]
             for prefix in psdPrefixes:
@@ -55,5 +64,5 @@ class GctfImportCTF:
                 if os.path.exists(psdFile):
                     if psdFile.endswith('.ctf'):
                         psdFile += ':mrc'
-                    ctf.setPsdFile(psdFile)
-        return ctf
+                    return psdFile
+        return None

@@ -27,12 +27,13 @@
 import os
 
 import pwem
+from pyworkflow.config import VarTypes
 import pyworkflow.utils as pwutils
 
-from .constants import *
+from gctf.constants import *
 
 
-__version__ = '3.1.3'
+__version__ = '3.2'
 _logo = "gctf_logo.png"
 _references = ['Zhang2016']
 
@@ -40,35 +41,60 @@ _references = ['Zhang2016']
 class Plugin(pwem.Plugin):
     _homeVar = GCTF_HOME
     _pathVars = [GCTF_HOME]
-    _supportedVersions = ['1.06', '1.18']
+    _supportedVersions = [V1_18]
     _url = "https://github.com/scipion-em/scipion-em-gctf"
 
     @classmethod
     def _defineVariables(cls):
-        cls._defineEmVar(GCTF_HOME, 'gctf-1.18')
-        cls._defineVar(GCTF, 'Gctf_v1.18_sm30-75_cu10.1')
-        cls._defineVar(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
+        cls._defineEmVar(GCTF_HOME, f'gctf-{V1_18}',
+                         description='Path to the Gctf installation folder',
+                         var_type=VarTypes.STRING)
+        cls._defineVar(GCTF, f'Gctf_v{V1_18}_sm30-75_cu10.1',
+                       description='Gctf binary filename',
+                       var_type=VarTypes.STRING)
+        cls._defineVar(GCTF_ENV_ACTIVATION, DEFAULT_ACTIVATION_CMD,
+                       description='GCTF environment activation command',
+                       var_type=VarTypes.STRING)
 
     @classmethod
     def getEnviron(cls):
         """ Return the environ settings to run Gctf program. """
         environ = pwutils.Environ(os.environ)
-        # Get Gctf CUDA library path if defined
-        cudaLib = cls.getVar(GCTF_CUDA_LIB, pwem.Config.CUDA_LIB)
-        environ.addLibrary(cudaLib)
+        environ.update({'PATH': Plugin.getHome('bin')},
+                       position=pwutils.Environ.BEGIN)
         return environ
 
     @classmethod
-    def defineBinaries(cls, env):
-        env.addPackage('gctf', version='1.06',
-                       tar='Gctf_v1.06.tgz')
+    def getGctfEnvActivation(cls):
+        return cls.getVar(GCTF_ENV_ACTIVATION)
 
-        env.addPackage('gctf', version='1.18',
-                       tar='Gctf_v1.18.tgz',
+    @classmethod
+    def getDependencies(cls):
+        condaActivationCmd = cls.getCondaActivationCmd()
+        neededProgs = []
+        if not condaActivationCmd:
+            neededProgs.append('conda')
+
+        return neededProgs
+
+    @classmethod
+    def defineBinaries(cls, env):
+        from scipion.install.funcs import CondaCommandDef
+        installCmd = CondaCommandDef("gctf", cls.getCondaActivationCmd())
+        installCmd.create(extraCmds='-y cudatoolkit=10.1')
+
+        env.addPackage('gctf', version=V1_18,
+                       tar=f'Gctf_v{V1_18}.tgz',
+                       commands=installCmd.getCommands(),
+                       neededProgs=cls.getDependencies(),
                        default=True)
 
     @classmethod
     def getProgram(cls):
         """ Return the program binary that will be used. """
-        return os.path.join(cls.getHome('bin'),
-                            os.path.basename(cls.getVar(GCTF)))
+        return " ".join([
+            cls.getCondaActivationCmd(),
+            cls.getGctfEnvActivation(),
+            "&& LD_LIBRARY_PATH=$CONDA_PREFIX/lib &&",
+            os.path.basename(cls.getVar(GCTF))
+        ])
