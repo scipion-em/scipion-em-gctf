@@ -224,11 +224,12 @@ class ProtTsGctf(EMProtocol):
         if outCtfSet:
             outCtfSet.enableAppend()
         else:
+            inTsPointer = self._getInputTs(pointer=True)
             outCtfSet = SetOfCTFTomoSeries.create(self._getPath(), template='ctfTomoSeries%s.sqlite')
-            outCtfSet.setSetOfTiltSeries(self.inTsSet)
+            outCtfSet.setSetOfTiltSeries(inTsPointer)
             outCtfSet.setStreamState(Set.STREAM_OPEN)
             self._defineOutputs(**{self._possibleOutputs.CTFs.name: outCtfSet})
-            self._defineSourceRelation(self.inTsSet, outCtfSet)
+            self._defineSourceRelation(inTsPointer, outCtfSet)
         return outCtfSet
 
     def getCtfParamsDict(self):
