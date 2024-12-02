@@ -1,3 +1,4 @@
+3.2.1: fix indirect pointers in the CTF estimation for TS.
 3.2:
  Users:
     - add conda environment with cuda 10.1 libs
