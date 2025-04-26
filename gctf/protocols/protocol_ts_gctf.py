@@ -54,10 +54,10 @@ class ProtTsGctf(EMProtocol):
     _possibleOutputs = TsGctfOutputs
     recalculate = Boolean(False, objDoStore=False)  # Legacy Sep 2024: to fake old recalculate param
     # that is still used in the ProtCTFMicrographs (to be removed)
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_PARALLEL
         self._gctfProgram = None
         self.inTsSet = None
         self.tsDict = None
