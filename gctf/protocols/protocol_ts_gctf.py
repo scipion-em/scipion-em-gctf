@@ -91,11 +91,14 @@ class ProtTsGctf(EMProtocol):
         pIdList = []
         for tsId in self.tsDict.keys():
             pidProcess = self._insertFunctionStep(self.processTiltSeriesStep,
-                                                  tsId, prerequisites=[])
+                                                  tsId, prerequisites=[],
+                                                  needsGPU=True)
             pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                       tsId, prerequisites=pidProcess)
+                                                       tsId, prerequisites=pidProcess,
+                                                       needsGPU=False)
             pIdList.append(pidCreateOutput)
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=pIdList, needsGPU=False)
 
     def _initialize(self):
         self.ih = ImageHandler()
