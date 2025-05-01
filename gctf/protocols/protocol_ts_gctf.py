@@ -54,10 +54,10 @@ class ProtTsGctf(EMProtocol):
     _possibleOutputs = TsGctfOutputs
     recalculate = Boolean(False, objDoStore=False)  # Legacy Sep 2024: to fake old recalculate param
     # that is still used in the ProtCTFMicrographs (to be removed)
+    stepsExecutionMode = STEPS_PARALLEL
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.stepsExecutionMode = STEPS_PARALLEL
         self._gctfProgram = None
         self.inTsSet = None
         self.tsDict = None
@@ -91,11 +91,14 @@ class ProtTsGctf(EMProtocol):
         pIdList = []
         for tsId in self.tsDict.keys():
             pidProcess = self._insertFunctionStep(self.processTiltSeriesStep,
-                                                  tsId, prerequisites=[])
+                                                  tsId, prerequisites=[],
+                                                  needsGPU=True)
             pidCreateOutput = self._insertFunctionStep(self.createOutputStep,
-                                                       tsId, prerequisites=pidProcess)
+                                                       tsId, prerequisites=pidProcess,
+                                                       needsGPU=False)
             pIdList.append(pidCreateOutput)
-        self._insertFunctionStep(self.closeOutputSetsStep, prerequisites=pIdList)
+        self._insertFunctionStep(self.closeOutputSetsStep,
+                                 prerequisites=pIdList, needsGPU=False)
 
     def _initialize(self):
         self.ih = ImageHandler()

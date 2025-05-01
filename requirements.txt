@@ -1,0 +1,3 @@
+scipion-em
+scipion-pyworkflow
+emtable
