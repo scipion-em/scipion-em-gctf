@@ -27,6 +27,7 @@
 import os
 
 import pwem
+from pyworkflow import SPA, TOMO
 from pyworkflow.config import VarTypes
 import pyworkflow.utils as pwutils
 
@@ -43,6 +44,7 @@ class Plugin(pwem.Plugin):
     _pathVars = [GCTF_HOME]
     _supportedVersions = [V1_18]
     _url = "https://github.com/scipion-em/scipion-em-gctf"
+    _processingField = [SPA, TOMO]
 
     @classmethod
     def _defineVariables(cls):
