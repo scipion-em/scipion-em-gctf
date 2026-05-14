@@ -48,7 +48,120 @@ class TsGctfOutputs(Enum):
 
 
 class ProtTsGctf(EMProtocol):
-    """ CTF estimation on a set of tilt series using GCTF. """
+    """
+    Estimates contrast transfer function parameters for cryo-electron tomography tilt-series using the GCTF framework.
+    The protocol analyzes each tilt image independently in order to characterize defocus and optical aberration
+    properties across an entire tilt-series dataset, providing the CTF information required for accurate tomographic
+    reconstruction, subtomogram averaging, and high-resolution structural interpretation.
+
+    AI Generated:
+
+    Tilt-Series GCTF (ProtTsGctf) - User Manual
+        Overview
+
+        The Tilt-Series GCTF protocol performs CTF estimation for cryo-electron tomography tilt-series data using the
+        GCTF package. Its primary objective is to determine the imaging conditions associated with each tilt image so
+        that downstream tomographic processing can properly account for microscope-induced contrast distortions.
+
+        In cryo-electron tomography workflows, each tilt image is acquired at a different specimen orientation and
+        often under varying imaging conditions. As tilt angle increases, the effective specimen thickness changes,
+        signal-to-noise ratio decreases, and defocus gradients become more challenging to interpret. Accurate CTF
+        estimation is therefore essential for reliable tomogram reconstruction and subsequent structural analysis.
+
+        Biological Importance of CTF Estimation
+
+        The contrast transfer function describes how spatial frequencies are transferred by the electron microscope
+        during image formation. Without proper CTF estimation and correction, high-resolution structural information
+        becomes distorted or attenuated, limiting the interpretability of tomograms and subtomogram averages.
+
+        In biological applications, precise CTF estimation directly affects the visibility of macromolecular features,
+        membrane boundaries, protein complexes, and subtle conformational states. Errors in defocus determination can
+        propagate throughout the processing workflow and reduce the final achievable resolution.
+
+        Tilt-series datasets present additional challenges compared to conventional single-particle micrographs because
+        images collected at high tilt angles often contain lower contrast and stronger geometric distortions. This
+        protocol is designed to provide robust estimation under these demanding tomographic conditions.
+
+        Input Data and Workflow
+
+        The protocol accepts a set of tilt series or an existing set of tomographic CTF objects associated with tilt
+        series. Each tilt image is processed independently to estimate its optical parameters, and the resulting CTF
+        information is organized into tomographic CTF series linked to the original acquisition geometry.
+
+        During processing, tilt images may optionally be downsampled before estimation. This strategy is frequently
+        beneficial in tomography because Thon rings can become excessively concentrated near the Fourier origin when
+        working with large pixel sizes or high-resolution acquisitions. Moderate downsampling often improves ring
+        visibility and stabilizes estimation without affecting the original acquisition data.
+
+        The protocol is optimized for parallel execution and GPU acceleration, making it suitable for modern cryo-ET
+        datasets that may contain many tilt series and large numbers of tilt images.
+
+        Downsampling Considerations
+
+        Choosing an appropriate downsampling factor is an important practical decision. Excessive downsampling may
+        remove useful high-resolution information or introduce aliasing artifacts, while insufficient downsampling may
+        make Thon rings difficult to detect reliably.
+
+        In routine tomographic workflows, moderate downsampling is commonly used to improve robustness, especially for
+        noisy datasets or highly tilted projections. Biological users should balance computational efficiency and
+        estimation quality according to the expected resolution goals of the experiment.
+
+        When very high-resolution subtomogram averaging is planned, users should verify that downsampling choices do
+        not compromise the accuracy of the estimated optical parameters.
+
+        Tilt-Series Specific Challenges
+
+        Cryo-electron tomography introduces several conditions that complicate CTF estimation. At high tilt angles,
+        increased specimen thickness reduces image contrast and amplifies multiple scattering effects. In addition,
+        anisotropic defocus variation across the field of view becomes more pronounced as the specimen tilts relative
+        to the beam direction.
+
+        Despite these challenges, reliable per-image estimation remains critical because downstream tomographic
+        reconstruction and CTF correction procedures depend on accurate optical characterization across the entire tilt
+        range.
+
+        Biological specimens with strong heterogeneity, thick ice, or crowded cellular environments may present
+        especially difficult estimation conditions. In such cases, careful parameter selection and visual inspection of
+        diagnostic outputs become particularly important.
+
+        Outputs and Interpretation
+
+        The protocol produces a set of tomographic CTF series associated with the original tilt series. Each tilt
+        image receives its own estimated CTF model together with corresponding power spectrum information useful for
+        quality assessment.
+
+        These outputs are intended for downstream tomographic reconstruction and subtomogram averaging workflows where
+        accurate optical correction is required. Because the resulting CTF information preserves the acquisition order
+        and tilt geometry, it can be integrated naturally into later stages of cryo-ET processing.
+
+        From a biological perspective, consistent and stable CTF estimation across the entire tilt range is generally
+        an indicator of good acquisition quality. Abrupt estimation failures or strong inconsistencies between adjacent
+        tilts may suggest issues such as excessive specimen thickness, poor alignment, charging, contamination, or low
+        image contrast.
+
+        Practical Recommendations
+
+        In most biological workflows, it is advisable to begin with conservative estimation settings and moderate
+        downsampling factors. Users should inspect representative tilt images across low, intermediate, and high tilt
+        angles to verify that Thon rings are detectable and estimation remains stable.
+
+        High-tilt projections frequently represent the most challenging part of the dataset. If estimation becomes
+        unstable at large tilt angles, users may consider increasing downsampling or adjusting resolution search
+        ranges to improve robustness.
+
+        GPU acceleration is strongly recommended for large cryo-ET datasets because tomography experiments often
+        contain many hundreds or thousands of tilt images requiring independent estimation.
+
+        Final Perspective
+
+        Accurate CTF estimation is a foundational step in cryo-electron tomography processing. By characterizing the
+        optical properties of each tilt image individually, this protocol supports reliable tomographic reconstruction,
+        improved subtomogram averaging, and more accurate biological interpretation of macromolecular structures in
+        their native context.
+
+        Careful parameter selection, attention to high-tilt behavior, and routine inspection of estimation quality are
+        essential practices for obtaining biologically meaningful tomographic reconstructions.
+    """
     _label = 'tilt-series gctf'
     _devStatus = PROD
     _possibleOutputs = TsGctfOutputs
