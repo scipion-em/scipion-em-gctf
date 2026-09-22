@@ -123,9 +123,14 @@ class ProtGctf(ProtCTFMicrographs):
                 micFnCtfLogOut = self._getCtfOutPath(micFn)
                 micFnCtfFitOut = self._getCtfFitOutPath(micFn)
 
-                pwutils.moveFile(micFnCtf, micFnCtfOut)
-                pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
-                pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+                try:
+                    pwutils.moveFile(micFnCtf, micFnCtfOut)
+                    pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
+                    pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+                except Exception:
+                    self.error("ERROR: Gctf has failed for %s" % micFn)
+                    import traceback
+                    traceback.print_exc()
 
             pwutils.cleanPath(micPath)
 
