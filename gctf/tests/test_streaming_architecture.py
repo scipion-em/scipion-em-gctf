@@ -4,9 +4,12 @@
 # *
 # **************************************************************************
 
+import tempfile
+import os
 import unittest
 
 from gctf.protocols import ProtGctf
+from gctf.protocols.program_gctf import ProgramGctf
 
 
 class _Mic:
@@ -541,4 +544,150 @@ class TestGctfStreamingThreadValidation(unittest.TestCase):
         errors = ProtGctf._validateStreamingThreads(protocol)
 
         self.assertEqual([], errors)
+
+
+class _Value:
+    def __init__(self, value):
+        self._value = value
+
+    def get(self):
+        return self._value
+
+
+class _GctfArgsProtocol:
+    def __init__(self):
+        self.minDefocus = _Value(5000.0)
+        self.maxDefocus = _Value(90000.0)
+        self.stepDefocus = _Value(500.0)
+        self.astigmatism = 1000.0
+        self.doEPA = True
+        self.plotResRing = True
+        self.bfactor = 150
+        self.overlap = 0.5
+        self.convsize = 85
+        self.doHighRes = False
+        self.smoothResL = 1000
+        self.EPAsmp = 4
+        self.doPhShEst = False
+        self.doValidate = False
+
+    def getCtfParamsDict(self):
+        return {
+            "samplingRate": 1.2,
+            "voltage": 300.0,
+            "sphericalAberration": 2.7,
+            "ampContrast": 0.1,
+            "scannedPixelSize": None,
+            "lowRes": 50.0,
+            "highRes": 4.0,
+            "windowSize": 1024,
+        }
+
+
+class TestGctfOptionalDetectorPixelSize(unittest.TestCase):
+    def test_GctfOmitsDstepWhenScannedPixelSizeIsUnavailable(self):
+        protocol = _GctfArgsProtocol()
+
+        program = ProgramGctf.__new__(ProgramGctf)
+        args, params = program._getArgs(protocol)
+        params["GPU"] = "0"
+
+        self.assertNotIn("--dstep", args)
+        formatted = args % params
+        self.assertIn("--apix 1.200000", formatted)
+
+
+class _ProcessingValue:
+    def __init__(self, value):
+        self._value = value
+
+    def get(self):
+        return self._value
+
+
+class _ProcessingMic:
+    def __init__(self, objId, fileName):
+        self._objId = objId
+        self._fileName = fileName
+
+    def getObjId(self):
+        return self._objId
+
+    def getFileName(self):
+        return self._fileName
+
+
+class _FailingCommandGctfProgram:
+    def getCommand(self, **kwargs):
+        raise RuntimeError("synthetic Gctf command failure")
+
+
+class _MissingOutputGctfProgram:
+    def getCommand(self, **kwargs):
+        return "gctf", "--synthetic"
+
+    def getExt(self):
+        return ".epa"
+
+
+class _GctfFailurePropagationHarness:
+    def __init__(self, root, program):
+        self._root = root
+        self._gctfProgram = program
+        self.ctfDownFactor = _ProcessingValue(1)
+        self._params = {"scannedPixelSize": 1.0}
+        self.errors = []
+
+    def _getMicrographDir(self, mic):
+        return os.path.join(self._root, "mic_tmp")
+
+    def runJob(self, program, params, env=None):
+        pass
+
+    def error(self, message):
+        self.errors.append(message)
+
+    def _getPsdPath(self, micFn):
+        return os.path.join(self._root, "out_ctf.mrc")
+
+    def _getCtfOutPath(self, micFn):
+        return os.path.join(self._root, "out_ctf.log")
+
+    def _getCtfFitOutPath(self, micFn):
+        return os.path.join(self._root, "out_EPA.log")
+
+
+class TestGctfProcessingFailurePropagation(unittest.TestCase):
+    def test_GctfCommandFailureFailsProcessingStep(self):
+        with tempfile.TemporaryDirectory() as root:
+            micFn = os.path.join(root, "mic_001.mrc")
+            open(micFn, "wb").close()
+            protocol = _GctfFailurePropagationHarness(
+                root,
+                _FailingCommandGctfProgram(),
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "synthetic Gctf command failure",
+            ):
+                ProtGctf._estimateCtfList(
+                    protocol,
+                    [_ProcessingMic(1, micFn)],
+                )
+
+    def test_GctfMissingOutputFailsProcessingStep(self):
+        with tempfile.TemporaryDirectory() as root:
+            micFn = os.path.join(root, "mic_001.mrc")
+            open(micFn, "wb").close()
+            protocol = _GctfFailurePropagationHarness(
+                root,
+                _MissingOutputGctfProgram(),
+            )
+
+            with self.assertRaises(Exception):
+                ProtGctf._estimateCtfList(
+                    protocol,
+                    [_ProcessingMic(1, micFn)],
+                )
 

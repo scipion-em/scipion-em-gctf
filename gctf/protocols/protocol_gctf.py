@@ -373,13 +373,15 @@ class ProtGctf(ProtCTFMicrographs):
                     self.error("ERROR: Gctf has failed for %s" % micFn)
                     import traceback
                     traceback.print_exc()
+                    raise
 
             pwutils.cleanPath(micPath)
 
-        except:
+        except Exception:
             self.error("ERROR: Gctf has failed for %s/*.mrc" % micPath)
             import traceback
             traceback.print_exc()
+            raise
 
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
