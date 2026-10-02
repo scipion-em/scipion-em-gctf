@@ -297,7 +297,8 @@ class ProgramGctf:
         args += "--kV %(voltage)f "
         args += "--cs %(sphericalAberration)f "
         args += "--ac %(ampContrast)f "
-        args += "--dstep %(scannedPixelSize)f "
+        if params.get('scannedPixelSize') is not None:
+            args += "--dstep %(scannedPixelSize)f "
         args += "--defL %(minDefocus)f "
         args += "--defH %(maxDefocus)f "
         args += "--defS %(step_focus)f "
