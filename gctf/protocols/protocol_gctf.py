@@ -25,9 +25,13 @@
 # **************************************************************************
 
 import os
+import time
+import json
+from collections import OrderedDict
+from datetime import datetime
 
 import pyworkflow.utils as pwutils
-from pyworkflow.object import Boolean
+from pyworkflow.object import Boolean, Set
 from pyworkflow.constants import PROD
 from pwem import emlib
 from pwem.objects import CTFModel
@@ -56,9 +60,247 @@ class ProtGctf(ProtCTFMicrographs):
     def _defineParams(self, form):
         ProgramGctf.defineInputParams(form)
         ProgramGctf.defineProcessParams(form)
+        form.getParam('numberOfThreads').config(default=3)
         self._defineStreamingParams(form)
 
     # -------------------------- STEPS functions ------------------------------
+    def _insertAllSteps(self):
+        """Insert only the resumable streaming generator."""
+        self._insertFunctionStep(
+            self.resumableStepGeneratorStep,
+            str(datetime.now()),
+            needsGPU=False,
+        )
+
+    def resumableStepGeneratorStep(self, timestamp):
+        """Run the generator as a unique step on every resume."""
+        self.stepsGeneratorStep()
+
+    def stepsGeneratorStep(self):
+        """Discover, process and publish CTFs incrementally."""
+        self._defineCtfParamsDict()
+        self.micDict = OrderedDict()
+        self.streamClosed = False
+        self.finished = False
+        self.initialIds = self._insertInitialSteps()
+        self._restoreProcessedMicsFromPersistentState()
+
+        while not self.finished:
+            self._checkNewInput()
+            self._checkNewOutput()
+
+            if self.finished:
+                break
+
+            sleepOnWait = self._getStreamingSleepOnWait()
+            if sleepOnWait > 0:
+                self._streamingSleepOnWait()
+            else:
+                time.sleep(1)
+
+    def _stepsCheck(self):
+        """Persist steps created by the generator without legacy polling."""
+        if getattr(self, '_newSteps', False):
+            self.updateSteps()
+
+    def _insertInitialSteps(self):
+        """No filesystem initialization is required for streaming state."""
+        return []
+
+    def _loadSet(self, inputSet, SetClass, getKeyFunc):
+        """Load new items directly from the logical input Set."""
+        self.debug("Loading logical input set.")
+        inputSet.loadAllProperties()
+
+        newItemDict = {}
+        for item in inputSet.iterItems():
+            micKey = getKeyFunc(item)
+            if micKey not in self.micDict:
+                newItemDict[micKey] = item.clone()
+
+        streamClosed = inputSet.isStreamClosed()
+        return newItemDict, streamClosed
+
+    def _getPublishedCtfMicNames(self):
+        """Return micrographs already present in the logical CTF output."""
+        outputCtf = getattr(self, 'outputCTF', None)
+
+        if outputCtf is None:
+            return set()
+
+        iterator = (
+            outputCtf.iterItems()
+            if hasattr(outputCtf, 'iterItems')
+            else iter(outputCtf)
+        )
+
+        publishedNames = set()
+
+        for ctf in iterator:
+            mic = ctf.getMicrograph()
+
+            if mic is not None:
+                publishedNames.add(mic.getMicName())
+
+        return publishedNames
+
+    def _getScheduledCtfMicNames(self):
+        """Return micrograph names represented by persisted CTF steps."""
+        scheduledNames = set()
+
+        for step in getattr(self, '_steps', []):
+            funcName = getattr(step, 'funcName', None)
+            if hasattr(funcName, 'get'):
+                funcName = funcName.get()
+
+            if funcName not in ('estimateCtfStep', 'estimateCtfListStep'):
+                continue
+
+            argsStr = getattr(step, 'argsStr', None)
+            if hasattr(argsStr, 'get'):
+                argsStr = argsStr.get('[]')
+
+            try:
+                args = json.loads(argsStr or '[]')
+            except (TypeError, ValueError):
+                continue
+
+            if not args:
+                continue
+
+            if funcName == 'estimateCtfStep':
+                if isinstance(args[0], str):
+                    scheduledNames.add(args[0])
+            elif isinstance(args[0], list):
+                scheduledNames.update(
+                    micName for micName in args[0]
+                    if isinstance(micName, str)
+                )
+
+        return scheduledNames
+
+    def _getFinishedCtfMicNames(self):
+        """Return micrograph names represented by finished CTF steps."""
+        finishedNames = set()
+
+        for step in getattr(self, '_steps', []):
+            if not step.isFinished():
+                continue
+
+            funcName = getattr(step, 'funcName', None)
+            if hasattr(funcName, 'get'):
+                funcName = funcName.get()
+
+            if funcName not in ('estimateCtfStep', 'estimateCtfListStep'):
+                continue
+
+            argsStr = getattr(step, 'argsStr', None)
+            if hasattr(argsStr, 'get'):
+                argsStr = argsStr.get('[]')
+
+            try:
+                args = json.loads(argsStr or '[]')
+            except (TypeError, ValueError):
+                continue
+
+            if not args:
+                continue
+
+            if funcName == 'estimateCtfStep':
+                if isinstance(args[0], str):
+                    finishedNames.add(args[0])
+            elif isinstance(args[0], list):
+                finishedNames.update(
+                    micName for micName in args[0]
+                    if isinstance(micName, str)
+                )
+
+        return finishedNames
+
+    def _restoreProcessedMicsFromPersistentState(self):
+        """Restore published and already scheduled inputs before discovery."""
+        processedNames = (
+            self._getPublishedCtfMicNames()
+            | self._getScheduledCtfMicNames()
+        )
+
+        if not processedNames:
+            return
+
+        inputMics = self.getInputMicrographs()
+        inputMics.loadAllProperties()
+
+        for mic in inputMics.iterItems():
+            micName = mic.getMicName()
+            if micName in processedNames:
+                self.micDict[micName] = mic.clone()
+
+    def _checkNewOutput(self):
+        """Publish finished CTF steps without filesystem sidecars."""
+        if getattr(self, 'finished', False):
+            return
+
+        publishedNames = self._getPublishedCtfMicNames()
+        finishedNames = self._getFinishedCtfMicNames()
+        micList = list(self.micDict.values())
+
+        newDone = [
+            mic for mic in micList
+            if (
+                mic.getMicName() in finishedNames
+                and mic.getMicName() not in publishedNames
+            )
+        ]
+
+        completedNames = publishedNames | finishedNames
+        allDone = all(
+            mic.getMicName() in completedNames
+            for mic in micList
+        )
+
+        self.finished = self.streamClosed and allDone
+        streamMode = Set.STREAM_CLOSED if self.finished else Set.STREAM_OPEN
+
+        if newDone:
+            self._updateOutputCTFSet(newDone, streamMode)
+        elif not self.finished:
+            if allDone:
+                self._streamingSleepOnWait()
+            return
+
+        if self.finished:
+            self._updateStreamState(streamMode)
+            outputStep = self._getFirstJoinStep()
+
+            if outputStep and outputStep.isWaiting():
+                from pyworkflow.protocol.constants import STATUS_NEW
+                outputStep.setStatus(STATUS_NEW)
+
+    def _checkNewInput(self):
+        """Discover new micrographs directly from the logical input Set."""
+        micDict, self.streamClosed = self._loadInputList()
+        newMics = micDict.values()
+        outputStep = self._getFirstJoinStep()
+
+        if newMics:
+            dependencies = self._insertNewMicsSteps(newMics)
+            if outputStep is not None:
+                outputStep.addPrerequisites(*dependencies)
+            self.updateSteps()
+
+    def estimateCtfStep(self, micName, *args):
+        """Estimate one CTF without filesystem completion markers."""
+        mic = self.micDict[micName]
+        self.info("Estimating CTF of micrograph: %s " % mic.getObjId())
+        self._estimateCTF(mic, *args)
+
+    def estimateCtfListStep(self, micNameList, *args):
+        """Estimate a CTF batch without filesystem completion markers."""
+        micList = [self.micDict[micName] for micName in micNameList]
+        self.info("Estimating CTF for micrographs: %s"
+                  % [mic.getObjId() for mic in micList])
+        self._estimateCtfList(micList, *args)
+
     def _estimateCTF(self, mic, *args):
         self._estimateCtfList([mic], *args)
 
@@ -158,6 +400,14 @@ class ProtGctf(ProtCTFMicrographs):
         pass
 
     # -------------------------- INFO functions -------------------------------
+    def _validateStreamingThreads(self):
+        inputMics = self.getInputMicrographs()
+
+        if inputMics is not None and inputMics.isStreamOpen() and self.numberOfThreads.get() < 3:
+            return ['Gctf streaming requires at least 3 threads.']
+
+        return []
+
     def _validate(self):
         errors = []
         nprocs = max(self.numberOfMpi.get(), self.numberOfThreads.get())
@@ -166,6 +416,7 @@ class ProtGctf(ProtCTFMicrographs):
             errors.append("Multiple GPUs can not be used by a single process. "
                           "Make sure you specify more processors than GPUs. ")
 
+        errors.extend(self._validateStreamingThreads())
         return errors
 
     def _methods(self):
