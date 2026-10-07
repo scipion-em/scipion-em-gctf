@@ -87,6 +87,9 @@ class LogicalSetFake:
 
         return self._streamClosed
 
+    def isStreamOpen(self):
+        return not self._streamClosed
+
     def setStreamClosed(self, streamClosed):
         self._streamClosed = streamClosed
 
