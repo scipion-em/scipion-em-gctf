@@ -7,9 +7,15 @@
 import tempfile
 import os
 import unittest
+from collections import OrderedDict
+
+import pyworkflow.utils as pwutils
 
 from gctf.protocols import ProtGctf
 from gctf.protocols.program_gctf import ProgramGctf
+from gctf.protocols.protocol_streaming_base import GctfStreamingBase
+
+from .logical_set_fakes import LogicalSetFake
 
 
 class _Mic:
@@ -27,31 +33,18 @@ class _Mic:
         return _Mic(self._objId, self._micName)
 
 
-class _LogicalMicrographSet:
-    def __init__(self, items, streamClosed=False):
-        self._items = list(items)
-        self._streamClosed = streamClosed
-        self.loadCalls = 0
-
-    def getFileName(self):
-        raise AssertionError(
-            "Gctf streaming discovery must not depend on a SQLite/storage filename."
-        )
-
-    def loadAllProperties(self):
-        self.loadCalls += 1
-
-    def iterItems(self):
-        return iter(self._items)
-
-    def isStreamClosed(self):
-        return self._streamClosed
+class _LogicalMicrographSet(LogicalSetFake):
+    pass
 
 
-class _GctfLogicalInputHarness:
+class _GctfLogicalInputHarness(GctfStreamingBase):
     def __init__(self, inputSet):
         self._inputSet = inputSet
-        self.micDict = {}
+        self.micDict = OrderedDict()
+        self._pendingMics = OrderedDict()
+        self._knownMicIds = set()
+        self._lastInputId = 0
+        self._steps = []
         self.debugMessages = []
 
     def getInputMicrographs(self):
@@ -59,6 +52,9 @@ class _GctfLogicalInputHarness:
 
     def debug(self, message):
         self.debugMessages.append(message)
+
+    def _getScheduledCtfMicNames(self):
+        return ProtGctf._getScheduledCtfMicNames(self)
 
     def _loadSet(self, inputSet, SetClass, getKeyFunc):
         return ProtGctf._loadSet(
@@ -94,19 +90,23 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class _JoinStep:
-    def __init__(self):
-        self.prerequisites = []
+class _NoJoinStepGuard:
+    """Fail loudly if the protocol goes back to the legacy join-step pattern.
 
-    def addPrerequisites(self, *deps):
-        self.prerequisites.extend(deps)
+    Streaming must not create a WAITING output step that the generator
+    unlocks with setStatus(STATUS_NEW).
+    """
+
+    def _getFirstJoinStep(self):
+        raise AssertionError(
+            "Streaming must not depend on a waiting join step."
+        )
 
 
-class _GctfInputCheckHarness(_GctfLogicalInputHarness):
+class _GctfInputCheckHarness(_NoJoinStepGuard, _GctfLogicalInputHarness):
     def __init__(self, inputSet):
         super().__init__(inputSet)
         self.streamClosed = False
-        self.joinStep = _JoinStep()
         self.insertedMicNames = []
         self.updateStepsCalls = 0
 
@@ -119,13 +119,13 @@ class _GctfInputCheckHarness(_GctfLogicalInputHarness):
             mic.getMicName()
             for mic in newMics
         )
+        for mic in newMics:
+            self.micDict[mic.getMicName()] = mic
+
         return [
             101 + index
             for index, _ in enumerate(newMics)
         ]
-
-    def _getFirstJoinStep(self):
-        return self.joinStep
 
     def updateSteps(self):
         self.updateStepsCalls += 1
@@ -147,10 +147,6 @@ class TestGctfStreamingInputChecks(unittest.TestCase):
         self.assertEqual(
             ["mic_001", "mic_002"],
             protocol.insertedMicNames,
-        )
-        self.assertEqual(
-            [101, 102],
-            protocol.joinStep.prerequisites,
         )
         self.assertEqual(1, protocol.updateStepsCalls)
         self.assertFalse(protocol.streamClosed)
@@ -174,7 +170,7 @@ class _CtfStep:
         return self._finished
 
 
-class _GctfFinishedStepsHarness:
+class _GctfFinishedStepsHarness(GctfStreamingBase):
     def __init__(self):
         self._steps = [
             _CtfStep(
@@ -216,25 +212,26 @@ class _OutputCtf:
     def __init__(self, mic):
         self._mic = mic
 
+    def getObjId(self):
+        return self._mic.getObjId()
+
     def getMicrograph(self):
         return self._mic
 
 
-class _LogicalCtfOutput:
+class _LogicalCtfOutput(LogicalSetFake):
     def __init__(self):
-        self._items = []
-
-    def iterItems(self):
-        return iter(self._items)
+        super().__init__([], streamClosed=False)
 
     def appendMic(self, mic):
         self._items.append(_OutputCtf(mic))
 
 
-class _GctfOutputCompletionHarness:
+class _GctfOutputCompletionHarness(GctfStreamingBase):
     def __init__(self):
         mic = _Mic(1, "mic_001")
-        self.micDict = {"mic_001": mic}
+        self.micDict = OrderedDict([("mic_001", mic)])
+        self._pendingMics = OrderedDict()
         self._steps = [
             _CtfStep(
                 "estimateCtfStep",
@@ -250,9 +247,6 @@ class _GctfOutputCompletionHarness:
 
     def _getFinishedCtfMicNames(self):
         return ProtGctf._getFinishedCtfMicNames(self)
-
-    def _getPublishedCtfMicNames(self):
-        return ProtGctf._getPublishedCtfMicNames(self)
 
     def _updateOutputCTFSet(self, micList, streamMode):
         micList = list(micList)
@@ -401,7 +395,7 @@ class TestGctfGeneratorOrchestration(unittest.TestCase):
         self.assertEqual(0, protocol.inputLoads)
 
 
-class _GctfResumeHarness:
+class _GctfResumeHarness(GctfStreamingBase):
     def __init__(self):
         self._inputMics = _LogicalMicrographSet(
             [
@@ -420,16 +414,16 @@ class _GctfResumeHarness:
                 False,
             ),
         ]
-        self.micDict = {}
+        self.micDict = OrderedDict()
+        self._pendingMics = OrderedDict()
+        self._knownMicIds = set()
+        self._lastInputId = 0
         self.streamClosed = False
         self.scheduledMicNames = []
         self.updateStepsCalls = 0
 
     def getInputMicrographs(self):
         return self._inputMics
-
-    def _getPublishedCtfMicNames(self):
-        return ProtGctf._getPublishedCtfMicNames(self)
 
     def _getFinishedCtfMicNames(self):
         return ProtGctf._getFinishedCtfMicNames(self)
@@ -461,9 +455,6 @@ class _GctfResumeHarness:
             for index, _ in enumerate(newMics)
         ]
 
-    def _getFirstJoinStep(self):
-        return None
-
     def updateSteps(self):
         self.updateStepsCalls += 1
 
@@ -482,8 +473,10 @@ class TestGctfGeneratorResumeSafety(unittest.TestCase):
             ["mic_003"],
             protocol.scheduledMicNames,
         )
+        # micDict now holds only what still has to be published, so the
+        # micrograph a previous run already published stays out of it.
         self.assertEqual(
-            {"mic_001", "mic_002", "mic_003"},
+            {"mic_002", "mic_003"},
             set(protocol.micDict),
         )
         self.assertEqual(1, protocol.updateStepsCalls)
@@ -657,6 +650,36 @@ class _GctfFailurePropagationHarness:
         return os.path.join(self._root, "out_EPA.log")
 
 
+class _PartialOutputHarness(_GctfFailurePropagationHarness):
+    """Only the second micrograph of the batch produces results."""
+
+    def __init__(self, root):
+        super().__init__(root, _MissingOutputGctfProgram())
+
+    def runJob(self, program, params, env=None):
+        # A multi-micrograph batch gets its own suffixed directory, so take
+        # the real one from the command the protocol just built.
+        micPath = params.rsplit(" ", 1)[-1][:-len("/*.mrc")]
+
+        for suffix in (".epa", "_gctf.log", "_EPA.log"):
+            with open(os.path.join(micPath, "mic_002" + suffix), "w") as fh:
+                fh.write("result\n")
+
+    def collectedFor(self, micBase):
+        return os.path.join(self._root, micBase + "_out_ctf.mrc")
+
+    def _getPsdPath(self, micFn):
+        return self.collectedFor(pwutils.removeBaseExt(micFn))
+
+    def _getCtfOutPath(self, micFn):
+        return os.path.join(
+            self._root, pwutils.removeBaseExt(micFn) + "_out_ctf.log")
+
+    def _getCtfFitOutPath(self, micFn):
+        return os.path.join(
+            self._root, pwutils.removeBaseExt(micFn) + "_out_EPA.log")
+
+
 class TestGctfProcessingFailurePropagation(unittest.TestCase):
     def test_GctfCommandFailureFailsProcessingStep(self):
         with tempfile.TemporaryDirectory() as root:
@@ -677,6 +700,8 @@ class TestGctfProcessingFailurePropagation(unittest.TestCase):
                 )
 
     def test_GctfMissingOutputFailsProcessingStep(self):
+        # Nothing came out of the batch at all, so the step has to fail
+        # rather than report the micrograph as estimated.
         with tempfile.TemporaryDirectory() as root:
             micFn = os.path.join(root, "mic_001.mrc")
             open(micFn, "wb").close()
@@ -691,3 +716,158 @@ class TestGctfProcessingFailurePropagation(unittest.TestCase):
                     [_ProcessingMic(1, micFn)],
                 )
 
+    def test_GctfBatchWithOneGoodResultDoesNotFailTheWholeStep(self):
+        # The counterpart of the test above, and the reason the step cannot
+        # simply re-raise: one bad micrograph must not discard the others.
+        with tempfile.TemporaryDirectory() as root:
+            micFns = []
+
+            for index in (1, 2):
+                micFn = os.path.join(root, "mic_%03d.mrc" % index)
+                open(micFn, "wb").close()
+                micFns.append(micFn)
+
+            protocol = _PartialOutputHarness(root)
+
+            ProtGctf._estimateCtfList(
+                protocol,
+                [_ProcessingMic(index + 1, micFn)
+                 for index, micFn in enumerate(micFns)],
+            )
+
+            self.assertEqual(1, len(protocol.errors))
+            self.assertTrue(os.path.exists(protocol.collectedFor("mic_002")))
+
+
+
+class _GctfCostHarness(_GctfLogicalInputHarness):
+    """Discovery over a Set that reports what it hydrated."""
+
+    def __init__(self, inputSet):
+        super().__init__(inputSet)
+        self.streamClosed = False
+        self.insertedMicNames = []
+        self.updateStepsCalls = 0
+
+    def _getScheduledCtfMicNames(self):
+        return ProtGctf._getScheduledCtfMicNames(self)
+
+    def _getFinishedCtfMicNames(self):
+        return ProtGctf._getFinishedCtfMicNames(self)
+
+    def _loadInputList(self):
+        return ProtGctf._loadSet(
+            self, self._inputSet, None, lambda mic: mic.getMicName())
+
+    def _insertNewMicsSteps(self, newMics):
+        newMics = list(newMics)
+        self.insertedMicNames.extend(mic.getMicName() for mic in newMics)
+
+        for mic in newMics:
+            self.micDict[mic.getMicName()] = mic
+
+        return []
+
+    def updateSteps(self):
+        self.updateStepsCalls += 1
+
+
+class TestGctfStreamingDiscoveryCost(unittest.TestCase):
+    """A poll must cost what just arrived, not everything seen so far."""
+
+    @staticmethod
+    def _mics(firstId, count):
+        return [_Mic(micId, "mic_%03d" % micId)
+                for micId in range(firstId, firstId + count)]
+
+    def test_GctfPollOnlyHydratesTheMicrographsThatJustArrived(self):
+        inputSet = _LogicalMicrographSet(self._mics(1, 500))
+        protocol = _GctfCostHarness(inputSet)
+
+        ProtGctf._checkNewInput(protocol)
+
+        self.assertEqual(500, inputSet.hydratedItems)
+
+        inputSet.addItems(self._mics(501, 3))
+        hydratedBefore = inputSet.hydratedItems
+
+        ProtGctf._checkNewInput(protocol)
+
+        self.assertEqual(3, inputSet.hydratedItems - hydratedBefore)
+        self.assertEqual(0, inputSet.fullScans)
+
+    def test_GctfIdlePollHydratesNothingAtAll(self):
+        inputSet = _LogicalMicrographSet(self._mics(1, 500))
+        protocol = _GctfCostHarness(inputSet)
+
+        ProtGctf._checkNewInput(protocol)
+        hydratedBefore = inputSet.hydratedItems
+
+        ProtGctf._checkNewInput(protocol)
+
+        self.assertEqual(hydratedBefore, inputSet.hydratedItems)
+
+    def test_GctfStepGraphScanDoesNotReparseStepsItAlreadyRead(self):
+        protocol = _GctfCostHarness(_LogicalMicrographSet([]))
+
+        parsed = []
+        original = GctfStreamingBase._parseStepArgKeys
+
+        def countingParse(step, dictField, keyType):
+            parsed.append(step)
+            return original(step, dictField, keyType)
+
+        # A plain function, not staticmethod(): an instance attribute is
+        # never bound, and a staticmethod object is only callable itself
+        # from Python 3.10 on.
+        protocol._parseStepArgKeys = countingParse
+
+        protocol._steps = [
+            _CtfStep("estimateCtfStep", '["mic_%03d"]' % micId, True)
+            for micId in range(1, 201)
+        ]
+
+        self.assertEqual(200, len(protocol._getFinishedCtfMicNames()))
+        self.assertEqual(200, len(parsed))
+
+        protocol._steps.append(_CtfStep("estimateCtfStep", '["mic_201"]', True))
+
+        self.assertEqual(201, len(protocol._getFinishedCtfMicNames()))
+        # Only the new step is parsed again, not the 200 already read.
+        self.assertEqual(201, len(parsed))
+
+    def test_GctfStepGraphScanReadsStepsRestoredOnResume(self):
+        # Work finished before a Continue lives in _prevSteps; reading only
+        # _steps would make it invisible and schedule it all over again.
+        protocol = _GctfCostHarness(_LogicalMicrographSet([]))
+        protocol._steps = [_CtfStep("estimateCtfStep", '["mic_002"]', True)]
+        protocol._prevSteps = [_CtfStep("estimateCtfStep", '["mic_001"]', True)]
+
+        self.assertEqual({"mic_001", "mic_002"},
+                         protocol._getFinishedCtfMicNames())
+
+    def test_GctfStepGraphScanSeesAPendingStepFinishAfterTheListIsRebuilt(self):
+        protocol = _GctfCostHarness(_LogicalMicrographSet([]))
+        protocol._steps = [_CtfStep("estimateCtfStep", '["mic_001"]', False)]
+
+        self.assertEqual(set(), protocol._getFinishedCtfMicNames())
+
+        # pyworkflow can rebuild the step list from the database, handing
+        # back new objects for the same positions.
+        protocol._steps = [_CtfStep("estimateCtfStep", '["mic_001"]', True)]
+
+        self.assertEqual({"mic_001"}, protocol._getFinishedCtfMicNames())
+
+    def test_GctfResumeStartsAboveWhatIsPublishedButKeepsTheGaps(self):
+        inputSet = _LogicalMicrographSet(self._mics(1, 100))
+        protocol = _GctfCostHarness(inputSet)
+
+        # A previous run published everything except mic_042.
+        publishedIds = set(range(1, 101)) - {42}
+
+        watermark, gapIds = protocol._resumeWatermarkWithGaps(
+            inputSet, publishedIds)
+
+        self.assertEqual(100, watermark)
+        self.assertEqual({42}, gapIds)
+        self.assertEqual(0, inputSet.hydratedItems)

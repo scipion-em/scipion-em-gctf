@@ -26,7 +26,6 @@
 
 import os
 import time
-import json
 from collections import OrderedDict
 from datetime import datetime
 
@@ -40,9 +39,13 @@ from pwem.protocols import ProtCTFMicrographs
 
 from gctf import Plugin
 from gctf.protocols.program_gctf import ProgramGctf
+from gctf.protocols.protocol_streaming_base import GctfStreamingBase
+
+# Module level: these helpers are called unbound on light test harnesses.
+CTF_STEP_NAMES = ('estimateCtfStep', 'estimateCtfListStep')
 
 
-class ProtGctf(ProtCTFMicrographs):
+class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
     """ Estimates CTF on a set of micrographs using Gctf.
 
     To find more information about Gctf go to:
@@ -80,6 +83,8 @@ class ProtGctf(ProtCTFMicrographs):
         """Discover, process and publish CTFs incrementally."""
         self._defineCtfParamsDict()
         self.micDict = OrderedDict()
+        self._pendingMics = OrderedDict()
+        self._knownMicIds = set()
         self.streamClosed = False
         self.finished = False
         self.initialIds = self._insertInitialSteps()
@@ -108,161 +113,109 @@ class ProtGctf(ProtCTFMicrographs):
         return []
 
     def _loadSet(self, inputSet, SetClass, getKeyFunc):
-        """Load new items directly from the logical input Set."""
-        self.debug("Loading logical input set.")
-        inputSet.loadAllProperties()
+        """Discover the items added since the last poll.
 
-        newItemDict = {}
-        for item in inputSet.iterItems():
+        Only ids above the watermark are queried and only those items are
+        hydrated, so a poll costs what just arrived instead of everything
+        the stream has produced. Items no batch has taken yet stay in
+        _pendingMics and are offered again next time, since the watermark
+        will never look back at them.
+        """
+        self.debug("Discovering new items from the logical input set.")
+
+        newItems, producerClosed, terminalConsistent = (
+            self._discoverNewInputItems(inputSet, '_lastInputId',
+                                        self._knownMicIds))
+
+        gapIds = getattr(self, '_resumeGapIds', None)
+
+        if gapIds:
+            newItems = (self._loadLogicalSetItemsByIds(inputSet, gapIds)
+                        + newItems)
+            self._resumeGapIds = set()
+
+        scheduledMicNames = self._getScheduledCtfMicNames()
+
+        for item in newItems:
+            itemId = item.getObjId()
+
+            if itemId in self._knownMicIds:
+                continue
+
+            self._knownMicIds.add(itemId)
+
             micKey = getKeyFunc(item)
-            if micKey not in self.micDict:
-                newItemDict[micKey] = item.clone()
 
-        streamClosed = inputSet.isStreamClosed()
-        return newItemDict, streamClosed
+            if micKey in self.micDict:
+                continue
 
-    def _getPublishedCtfMicNames(self):
-        """Return micrographs already present in the logical CTF output."""
-        outputCtf = getattr(self, 'outputCTF', None)
+            if micKey in scheduledMicNames:
+                # Already has a step from an earlier run: it only needs
+                # publishing, so it must not be scheduled a second time.
+                self.micDict[micKey] = item
+                continue
 
-        if outputCtf is None:
-            return set()
+            self._pendingMics[micKey] = item
 
-        iterator = (
-            outputCtf.iterItems()
-            if hasattr(outputCtf, 'iterItems')
-            else iter(outputCtf)
-        )
-
-        publishedNames = set()
-
-        for ctf in iterator:
-            mic = ctf.getMicrograph()
-
-            if mic is not None:
-                publishedNames.add(mic.getMicName())
-
-        return publishedNames
+        return OrderedDict(self._pendingMics), producerClosed and terminalConsistent
 
     def _getScheduledCtfMicNames(self):
         """Return micrograph names represented by persisted CTF steps."""
-        scheduledNames = set()
-
-        for step in getattr(self, '_steps', []):
-            funcName = getattr(step, 'funcName', None)
-            if hasattr(funcName, 'get'):
-                funcName = funcName.get()
-
-            if funcName not in ('estimateCtfStep', 'estimateCtfListStep'):
-                continue
-
-            argsStr = getattr(step, 'argsStr', None)
-            if hasattr(argsStr, 'get'):
-                argsStr = argsStr.get('[]')
-
-            try:
-                args = json.loads(argsStr or '[]')
-            except (TypeError, ValueError):
-                continue
-
-            if not args:
-                continue
-
-            if funcName == 'estimateCtfStep':
-                if isinstance(args[0], str):
-                    scheduledNames.add(args[0])
-            elif isinstance(args[0], list):
-                scheduledNames.update(
-                    micName for micName in args[0]
-                    if isinstance(micName, str)
-                )
-
-        return scheduledNames
+        return self._collectStepArgKeys(CTF_STEP_NAMES, onlyFinished=False,
+                                        keyType=str)
 
     def _getFinishedCtfMicNames(self):
         """Return micrograph names represented by finished CTF steps."""
-        finishedNames = set()
-
-        for step in getattr(self, '_steps', []):
-            if not step.isFinished():
-                continue
-
-            funcName = getattr(step, 'funcName', None)
-            if hasattr(funcName, 'get'):
-                funcName = funcName.get()
-
-            if funcName not in ('estimateCtfStep', 'estimateCtfListStep'):
-                continue
-
-            argsStr = getattr(step, 'argsStr', None)
-            if hasattr(argsStr, 'get'):
-                argsStr = argsStr.get('[]')
-
-            try:
-                args = json.loads(argsStr or '[]')
-            except (TypeError, ValueError):
-                continue
-
-            if not args:
-                continue
-
-            if funcName == 'estimateCtfStep':
-                if isinstance(args[0], str):
-                    finishedNames.add(args[0])
-            elif isinstance(args[0], list):
-                finishedNames.update(
-                    micName for micName in args[0]
-                    if isinstance(micName, str)
-                )
-
-        return finishedNames
+        return self._collectStepArgKeys(CTF_STEP_NAMES, keyType=str)
 
     def _restoreProcessedMicsFromPersistentState(self):
-        """Restore published and already scheduled inputs before discovery."""
-        processedNames = (
-            self._getPublishedCtfMicNames()
-            | self._getScheduledCtfMicNames()
-        )
+        """Place the watermark past what a previous run already published.
 
-        if not processedNames:
+        A published CTF carries the object id of its micrograph, so the
+        output Set alone says where discovery can restart - no need to walk
+        the input looking for names. Micrographs that were estimated but
+        never published come back as gaps and are published on the first
+        output check instead of being kept out of the stream.
+        """
+        self._lastInputId = getattr(self, '_lastInputId', 0)
+
+        publishedIds = self._getOutputIdSet(getattr(self, 'outputCTF', None))
+
+        if not publishedIds:
             return
 
-        inputMics = self.getInputMicrographs()
-        inputMics.loadAllProperties()
+        watermark, gapIds = self._resumeWatermarkWithGaps(
+            self.getInputMicrographs(), publishedIds)
 
-        for mic in inputMics.iterItems():
-            micName = mic.getMicName()
-            if micName in processedNames:
-                self.micDict[micName] = mic.clone()
+        self._lastInputId = max(self._lastInputId, watermark)
+        self._knownMicIds.update(publishedIds)
+        self._resumeGapIds = gapIds
 
     def _checkNewOutput(self):
         """Publish finished CTF steps without filesystem sidecars."""
         if getattr(self, 'finished', False):
             return
 
-        publishedNames = self._getPublishedCtfMicNames()
         finishedNames = self._getFinishedCtfMicNames()
-        micList = list(self.micDict.values())
 
+        # micDict holds what has been scheduled and not published yet, so
+        # only that has to be looked at - never every micrograph seen.
         newDone = [
-            mic for mic in micList
-            if (
-                mic.getMicName() in finishedNames
-                and mic.getMicName() not in publishedNames
-            )
+            mic for micName, mic in self.micDict.items()
+            if micName in finishedNames
         ]
 
-        completedNames = publishedNames | finishedNames
-        allDone = all(
-            mic.getMicName() in completedNames
-            for mic in micList
-        )
+        allDone = (len(newDone) == len(self.micDict)
+                   and not self._pendingMics)
 
         self.finished = self.streamClosed and allDone
         streamMode = Set.STREAM_CLOSED if self.finished else Set.STREAM_OPEN
 
         if newDone:
             self._updateOutputCTFSet(newDone, streamMode)
+
+            for mic in newDone:
+                self.micDict.pop(mic.getMicName(), None)
         elif not self.finished:
             if allDone:
                 self._streamingSleepOnWait()
@@ -270,22 +223,21 @@ class ProtGctf(ProtCTFMicrographs):
 
         if self.finished:
             self._updateStreamState(streamMode)
-            outputStep = self._getFirstJoinStep()
-
-            if outputStep and outputStep.isWaiting():
-                from pyworkflow.protocol.constants import STATUS_NEW
-                outputStep.setStatus(STATUS_NEW)
 
     def _checkNewInput(self):
         """Discover new micrographs directly from the logical input Set."""
         micDict, self.streamClosed = self._loadInputList()
-        newMics = micDict.values()
-        outputStep = self._getFirstJoinStep()
+        newMics = list(micDict.values())
 
         if newMics:
-            dependencies = self._insertNewMicsSteps(newMics)
-            if outputStep is not None:
-                outputStep.addPrerequisites(*dependencies)
+            self._insertNewMicsSteps(newMics)
+
+            # pwem only takes whole batches; whatever it left out has to be
+            # offered again, because discovery will not find it twice.
+            for mic in newMics:
+                if mic.getMicName() in self.micDict:
+                    self._pendingMics.pop(mic.getMicName(), None)
+
             self.updateSteps()
 
     def estimateCtfStep(self, micName, *args):
@@ -345,12 +297,16 @@ class ProtGctf(ProtCTFMicrographs):
             def _getFile(micBase, suffix):
                 return os.path.join(micPath, micBase + suffix)
 
+            collected = 0
+            attempted = 0
+
             for mic in micList:
                 micFn = mic.getFileName()
 
                 if not os.path.exists(micFn):
                     continue
 
+                attempted += 1
                 micBase = pwutils.removeBaseExt(micFn)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
@@ -369,13 +325,24 @@ class ProtGctf(ProtCTFMicrographs):
                     pwutils.moveFile(micFnCtf, micFnCtfOut)
                     pwutils.moveFile(micFnCtfLog, micFnCtfLogOut)
                     pwutils.moveFile(micFnCtfFit, micFnCtfFitOut)
+                    collected += 1
                 except Exception:
+                    # One micrograph without results must not discard the
+                    # ones later in the batch that do have them, and
+                    # publication already skips a micrograph whose CTF
+                    # cannot be built.
                     self.error("ERROR: Gctf has failed for %s" % micFn)
                     import traceback
                     traceback.print_exc()
-                    raise
 
             pwutils.cleanPath(micPath)
+
+            if attempted and not collected:
+                # Nothing at all came out of this batch: the step really did
+                # fail and has to say so, rather than reporting micrographs
+                # as estimated when none of them are.
+                raise Exception("Gctf produced no output for any micrograph "
+                                "in %s" % micPath)
 
         except Exception:
             self.error("ERROR: Gctf has failed for %s/*.mrc" % micPath)
