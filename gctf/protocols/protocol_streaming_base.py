@@ -107,17 +107,24 @@ class GctfStreamingBase:
 
         return newIds, terminalConsistent
 
-    def _loadLogicalSetItemsByIds(self, inputSet, itemIds, batchSize=500):
+    @staticmethod
+    def _refreshLogicalSet(inputSet):
+        """Reload the Set's own properties, once per poll."""
+        loadAllProperties = getattr(inputSet, 'loadAllProperties', None)
+
+        if callable(loadAllProperties):
+            loadAllProperties()
+
+    def _loadLogicalSetItemsByIds(self, inputSet, itemIds, batchSize=500,
+                                  refresh=True):
         """Load only the items behind ``itemIds``, never the whole Set."""
         itemIds = sorted(set(itemIds))
 
         if not itemIds:
             return []
 
-        loadAllProperties = getattr(inputSet, 'loadAllProperties', None)
-
-        if callable(loadAllProperties):
-            loadAllProperties()
+        if refresh:
+            self._refreshLogicalSet(inputSet)
 
         def cloneItem(item):
             clone = getattr(item, 'clone', None)
@@ -193,6 +200,12 @@ class GctfStreamingBase:
 
         Returns ``(items, producerClosed, terminalConsistent)``.
         """
+        # Refresh the Set's own properties first: isStreamClosed() reads
+        # one of them, and a stale value would keep the protocol polling
+        # forever after the producer has actually closed. Once here is
+        # enough for the whole poll.
+        self._refreshLogicalSet(inputSet)
+
         lastId = getattr(self, watermarkAttr, 0)
         newIds, lastId = self._discoverIdsAfter(inputSet, lastId)
         setattr(self, watermarkAttr, lastId)
@@ -202,7 +215,8 @@ class GctfStreamingBase:
         newIds, terminalConsistent = self._reconcileClosedStreamIds(
             inputSet, newIds, knownIds, producerClosed, watermarkAttr)
 
-        items = self._loadLogicalSetItemsByIds(inputSet, newIds)
+        items = self._loadLogicalSetItemsByIds(inputSet, newIds,
+                                               refresh=False)
 
         return items, producerClosed, terminalConsistent
 

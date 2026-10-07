@@ -49,6 +49,11 @@ def _matchesWhere(itemId, where):
 class LogicalSetFake:
     """A logical Set that answers by id without being walked."""
 
+    # A polling loop that never sees the stream close would hang the
+    # suite instead of failing it, so these doubles refuse to be polled
+    # forever. See isStreamClosed below.
+    MAX_POLLS = 50
+
     def __init__(self, items, streamClosed=False):
         self._items = list(items)
         self._streamClosed = streamClosed
@@ -56,6 +61,7 @@ class LogicalSetFake:
         self.reloads = 0
         self.hydratedItems = 0
         self.fullScans = 0
+        self.closedChecks = 0
 
     # The storage filename is never part of the streaming contract.
     def getFileName(self):
@@ -69,6 +75,16 @@ class LogicalSetFake:
         self.reloads += 1
 
     def isStreamClosed(self):
+        self.closedChecks += 1
+
+        if self.closedChecks > self.MAX_POLLS:
+            raise AssertionError(
+                "Polled %d times without ever seeing the stream close. "
+                "A protocol that misses the producer closing must fail "
+                "this suite, not hang it."
+                % self.closedChecks
+            )
+
         return self._streamClosed
 
     def setStreamClosed(self, streamClosed):

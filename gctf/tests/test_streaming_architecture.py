@@ -871,3 +871,50 @@ class TestGctfStreamingDiscoveryCost(unittest.TestCase):
         self.assertEqual(100, watermark)
         self.assertEqual({42}, gapIds)
         self.assertEqual(0, inputSet.hydratedItems)
+
+
+class _StaleCloseMicrographSet(LogicalSetFake):
+    """A Set whose closed flag only becomes visible after a reload."""
+
+    def __init__(self, items, closedAfterReloads=2):
+        super().__init__(items, streamClosed=False)
+        self.closedAfterReloads = closedAfterReloads
+
+    def loadAllProperties(self):
+        super().loadAllProperties()
+
+        if self.reloads >= self.closedAfterReloads:
+            self._streamClosed = True
+
+
+class TestGctfStreamingNoticesTheProducerClosing(unittest.TestCase):
+    """isStreamClosed() reads a Set property, so a poll must reload first.
+
+    Without that reload the protocol keeps seeing a stale "still open"
+    and polls forever, which is a hang rather than a wrong result.
+    """
+
+    def test_DiscoverySeesTheStreamCloseOnALaterPoll(self):
+        inputSet = _StaleCloseMicrographSet([_Mic(1, "mic_001")])
+        protocol = _GctfCostHarness(inputSet)
+
+        _, producerClosed, _ = protocol._discoverNewInputItems(
+            inputSet, '_lastInputId', set())
+        self.assertFalse(producerClosed)
+
+        _, producerClosed, _ = protocol._discoverNewInputItems(
+            inputSet, '_lastInputId', {1})
+        self.assertTrue(producerClosed)
+
+    def test_AnIdlePollStillRefreshesTheSetProperties(self):
+        # Nothing new arrives, so no item is loaded - the reload still has
+        # to happen, or the closed flag would never be seen.
+        inputSet = _StaleCloseMicrographSet([], closedAfterReloads=1)
+        protocol = _GctfCostHarness(inputSet)
+
+        items, producerClosed, _ = protocol._discoverNewInputItems(
+            inputSet, '_lastInputId', set())
+
+        self.assertEqual([], items)
+        self.assertTrue(producerClosed)
+        self.assertEqual(1, inputSet.reloads)
