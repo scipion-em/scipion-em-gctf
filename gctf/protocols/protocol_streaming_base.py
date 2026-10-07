@@ -16,6 +16,9 @@
 # **************************************************************************
 
 import json
+import os
+
+import pyworkflow.protocol.constants as cons
 
 
 class _StepArgScan:
@@ -47,6 +50,48 @@ class GctfStreamingBase:
     it runs.
     """
 
+    # ------------------------ per-item artefacts -----------------------
+
+    def _itemScopedPath(self, item, baseName, pathFunc=None):
+        """Path for a per-item artefact, scoped by the item's own id.
+
+        A Set can hold two micrographs whose files share a basename and
+        differ only in their directory, so naming an artefact after the
+        basename alone has the second one overwrite the first - silently,
+        and with the wrong image's results read back afterwards.
+
+        Projects written before this was scoped hold the unscoped name,
+        and those files are the user's results: when only the old one is
+        on disk it is still the one returned, so Continue keeps working.
+        """
+        pathFunc = pathFunc or self._getExtraPath
+        itemId = item.getObjId() if hasattr(item, 'getObjId') else item
+        scoped = pathFunc('%06d__%s' % (itemId, baseName))
+
+        if not os.path.exists(scoped):
+            legacy = pathFunc(baseName)
+
+            if os.path.exists(legacy):
+                return legacy
+
+        return scoped
+
+    # --------------------------- termination ---------------------------
+
+    def _streamingMustStop(self):
+        """True when the generator has to abandon its polling loop.
+
+        A failed step makes pyworkflow mark the protocol as FAILED and the
+        executor break out of its own loop - and then join every running
+        thread, the generator's among them. A generator that keeps polling
+        is never joined, so the whole run hangs with nothing left to do.
+        The same applies once it has been aborted.
+        """
+        status = getattr(self, 'status', None)
+        value = status.get() if hasattr(status, 'get') else status
+
+        return value in (cons.STATUS_FAILED, cons.STATUS_ABORTED)
+
     # ------------------------- input discovery -------------------------
     def _discoverIdsAfter(self, inputSet, lastId):
         """Discover logical ids above the current streaming watermark.
@@ -73,8 +118,8 @@ class GctfStreamingBase:
                                   producerClosed, watermarkAttr):
         """Recover late-visible ids, but only once the producer is closed.
 
-        A PostgreSQL-backed producer can declare itself closed while some
-        of its rows are not visible yet. Rescanning every poll to cover
+        A producer can declare itself closed while some of its rows are
+        not visible yet. Rescanning every poll to cover
         that would defeat the watermark, so the full listing happens only
         in this terminal reconciliation, and only while the declared size
         still exceeds what has actually been seen.

@@ -66,7 +66,7 @@ class LogicalSetFake:
     # The storage filename is never part of the streaming contract.
     def getFileName(self):
         raise AssertionError(
-            'Streaming discovery must not depend on a SQLite/storage '
+            'Streaming discovery must not depend on a storage '
             'filename.'
         )
 

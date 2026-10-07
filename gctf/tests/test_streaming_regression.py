@@ -55,30 +55,34 @@ class _BatchHarness:
     def _getMicrographDir(self, mic):
         return os.path.join(self.tmp_dir, "work")
 
-    def _getPsdPath(self, mic_fn):
-        base = os.path.splitext(os.path.basename(mic_fn))[0]
-        return os.path.join(self.extra_dir, base + "_ctf.mrc")
+    _getMicArtefactBase = ProtGctf._getMicArtefactBase
+    _getBatchMicBase = ProtGctf._getBatchMicBase
+    _batchInputArgument = ProtGctf._batchInputArgument
 
-    def _getCtfOutPath(self, mic_fn):
-        base = os.path.splitext(os.path.basename(mic_fn))[0]
-        return os.path.join(self.extra_dir, base + "_ctf.log")
+    def _getPsdPath(self, mic):
+        return os.path.join(self.extra_dir,
+                            self._getBatchMicBase(mic) + "_ctf.mrc")
 
-    def _getCtfFitOutPath(self, mic_fn):
-        base = os.path.splitext(os.path.basename(mic_fn))[0]
-        return os.path.join(self.extra_dir, base + "_ctf_EPA.log")
+    def _getCtfOutPath(self, mic):
+        return os.path.join(self.extra_dir,
+                            self._getBatchMicBase(mic) + "_ctf.log")
+
+    def _getCtfFitOutPath(self, mic):
+        return os.path.join(self.extra_dir,
+                            self._getBatchMicBase(mic) + "_ctf_EPA.log")
 
     def runJob(self, *args, **kwargs):
         os.makedirs(self.work_dir, exist_ok=True)
 
         # mic_001 simulates a partial GCTF failure: its main CTF output is
         # missing. mic_002 has a complete, valid result and must not be lost.
-        for base in ("mic_001", "mic_002"):
+        for base in ("000001__mic_001", "000002__mic_002"):
             with open(os.path.join(self.work_dir, base + "_gctf.log"), "w") as handle:
                 handle.write("log\n")
             with open(os.path.join(self.work_dir, base + "_EPA.log"), "w") as handle:
                 handle.write("fit\n")
 
-        with open(os.path.join(self.work_dir, "mic_002.epa"), "w") as handle:
+        with open(os.path.join(self.work_dir, "000002__mic_002.epa"), "w") as handle:
             handle.write("valid ctf output\n")
 
     def error(self, message):
@@ -106,12 +110,12 @@ class TestGctfStreamingRegression(unittest.TestCase):
                 ProtGctf._estimateCtfList(protocol, [mic1, mic2])
 
             self.assertTrue(
-                os.path.exists(protocol._getPsdPath(mic2_fn)),
+                os.path.exists(protocol._getPsdPath(mic2)),
                 "A failed micrograph in a GCTF batch must not prevent a later "
                 "micrograph with valid outputs from being preserved.",
             )
-            self.assertTrue(os.path.exists(protocol._getCtfOutPath(mic2_fn)))
-            self.assertTrue(os.path.exists(protocol._getCtfFitOutPath(mic2_fn)))
+            self.assertTrue(os.path.exists(protocol._getCtfOutPath(mic2)))
+            self.assertTrue(os.path.exists(protocol._getCtfFitOutPath(mic2)))
 
 
 if __name__ == "__main__":

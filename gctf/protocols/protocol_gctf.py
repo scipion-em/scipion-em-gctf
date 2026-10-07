@@ -25,6 +25,7 @@
 # **************************************************************************
 
 import os
+import shlex
 import time
 from collections import OrderedDict
 from datetime import datetime
@@ -91,6 +92,12 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
         self._restoreProcessedMicsFromPersistentState()
 
         while not self.finished:
+            # A failed step makes the executor stop and then join every
+            # thread, this generator included: keep polling and the run
+            # hangs for good with nothing left to do.
+            if self._streamingMustStop():
+                break
+
             self._checkNewInput()
             self._checkNewOutput()
 
@@ -276,7 +283,8 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
                     continue
 
                 downFactor = self.ctfDownFactor.get()
-                micFnMrc = os.path.join(micPath, pwutils.replaceBaseExt(micFn, 'mrc'))
+                micFnMrc = os.path.join(micPath,
+                                        self._getBatchMicBase(mic) + '.mrc')
 
                 if downFactor != 1:
                     # Replace extension by 'mrc' cause there are some formats
@@ -291,7 +299,7 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
                         ih.convert(micFn, micFnMrc, emlib.DT_FLOAT)
 
             program, params = self._gctfProgram.getCommand(**kwargs)
-            params += ' %s/*.mrc' % micPath
+            params += self._batchInputArgument(micPath)
             self.runJob(program, params, env=Plugin.getEnviron())
 
             def _getFile(micBase, suffix):
@@ -307,7 +315,7 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
                     continue
 
                 attempted += 1
-                micBase = pwutils.removeBaseExt(micFn)
+                micBase = self._getBatchMicBase(mic)
                 micFnMrc = _getFile(micBase, '.mrc')
                 # Let's clean the temporary mrc micrograph
                 pwutils.cleanPath(micFnMrc)
@@ -317,9 +325,9 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
                 micFnCtfLog = _getFile(micBase, '_gctf.log')
                 micFnCtfFit = _getFile(micBase, '_EPA.log')
 
-                micFnCtfOut = self._getPsdPath(micFn)
-                micFnCtfLogOut = self._getCtfOutPath(micFn)
-                micFnCtfFitOut = self._getCtfFitOutPath(micFn)
+                micFnCtfOut = self._getPsdPath(mic)
+                micFnCtfLogOut = self._getCtfOutPath(mic)
+                micFnCtfFitOut = self._getCtfFitOutPath(mic)
 
                 try:
                     pwutils.moveFile(micFnCtf, micFnCtfOut)
@@ -358,9 +366,8 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
             newSampling = mic.getSamplingRate() * self.ctfDownFactor.get()
             mic.setSamplingRate(newSampling)
 
-        micFn = mic.getFileName()
         ctf = self._gctfProgram.parseOutputAsCtf(
-            self._getCtfOutPath(micFn), psdFile=self._getPsdPath(micFn))
+            self._getCtfOutPath(mic), psdFile=self._getPsdPath(mic))
         ctf.setMicrograph(mic)
 
         return ctf
@@ -402,17 +409,44 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
         return [methods]
 
     # -------------------------- UTILS functions ------------------------------
-    def _getPsdPath(self, micFn):
-        micFnBase = pwutils.removeBaseExt(micFn)
-        return self._getExtraPath(micFnBase + '_ctf.mrc')
+    def _getPsdPath(self, mic):
+        return self._itemScopedPath(mic, self._getMicArtefactBase(mic)
+                                    + '_ctf.mrc')
 
-    def _getCtfOutPath(self, micFn):
-        micFnBase = pwutils.removeBaseExt(micFn)
-        return self._getExtraPath(micFnBase + '_ctf.log')
+    def _getCtfOutPath(self, mic):
+        return self._itemScopedPath(mic, self._getMicArtefactBase(mic)
+                                    + '_ctf.log')
 
-    def _getCtfFitOutPath(self, micFn):
-        micFnBase = pwutils.removeBaseExt(micFn)
-        return self._getExtraPath(micFnBase + '_ctf_EPA.log')
+    def _getCtfFitOutPath(self, mic):
+        return self._itemScopedPath(mic, self._getMicArtefactBase(mic)
+                                    + '_ctf_EPA.log')
+
+    def _getMicArtefactBase(self, mic):
+        """The basename every artefact of this micrograph is built on."""
+        return pwutils.removeBaseExt(mic.getFileName())
+
+    def _batchInputArgument(self, micPath):
+        """The batch folder as gctf's input argument.
+
+        This goes to a shell, and a Scipion project can perfectly well
+        live under a directory with a space in its name - unquoted, the
+        shell would read that as two arguments and point gctf somewhere
+        else. The folder is quoted; the wildcard stays outside the quotes
+        so the shell still expands it.
+        """
+        return " %s/*.mrc" % shlex.quote(micPath)
+
+    def _getBatchMicBase(self, mic):
+        """Name this micrograph takes inside its batch folder.
+
+        Every micrograph of a batch is converted into one folder and gctf
+        is pointed at it with a wildcard, so two micrographs whose files
+        share a basename would become a single input: one converted on
+        top of the other before gctf even runs, and both reading back the
+        survivor's results. The id keeps them apart; the original
+        basename stays in the name so logs remain readable.
+        """
+        return '%06d__%s' % (mic.getObjId(), self._getMicArtefactBase(mic))
 
     def _parseOutput(self, filename):
         """ Try to find the output estimation parameters

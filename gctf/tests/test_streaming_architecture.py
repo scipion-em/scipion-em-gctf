@@ -6,6 +6,7 @@
 
 import tempfile
 import os
+import shlex
 import unittest
 from collections import OrderedDict
 
@@ -640,13 +641,17 @@ class _GctfFailurePropagationHarness:
     def error(self, message):
         self.errors.append(message)
 
-    def _getPsdPath(self, micFn):
+    _getMicArtefactBase = ProtGctf._getMicArtefactBase
+    _getBatchMicBase = ProtGctf._getBatchMicBase
+    _batchInputArgument = ProtGctf._batchInputArgument
+
+    def _getPsdPath(self, mic):
         return os.path.join(self._root, "out_ctf.mrc")
 
-    def _getCtfOutPath(self, micFn):
+    def _getCtfOutPath(self, mic):
         return os.path.join(self._root, "out_ctf.log")
 
-    def _getCtfFitOutPath(self, micFn):
+    def _getCtfFitOutPath(self, mic):
         return os.path.join(self._root, "out_EPA.log")
 
 
@@ -658,26 +663,30 @@ class _PartialOutputHarness(_GctfFailurePropagationHarness):
 
     def runJob(self, program, params, env=None):
         # A multi-micrograph batch gets its own suffixed directory, so take
-        # the real one from the command the protocol just built.
-        micPath = params.rsplit(" ", 1)[-1][:-len("/*.mrc")]
+        # the real one from the command the protocol just built. The
+        # folder is quoted there, so split it as the shell would.
+        micPath = shlex.split(params)[-1][:-len("/*.mrc")]
 
+        # The batch folder names each micrograph by its id, so the fake
+        # gctf has to write where the collector will look for it.
         for suffix in (".epa", "_gctf.log", "_EPA.log"):
-            with open(os.path.join(micPath, "mic_002" + suffix), "w") as fh:
+            with open(os.path.join(micPath, "000002__mic_002" + suffix),
+                      "w") as fh:
                 fh.write("result\n")
 
     def collectedFor(self, micBase):
         return os.path.join(self._root, micBase + "_out_ctf.mrc")
 
-    def _getPsdPath(self, micFn):
-        return self.collectedFor(pwutils.removeBaseExt(micFn))
+    def _getPsdPath(self, mic):
+        return self.collectedFor(self._getBatchMicBase(mic))
 
-    def _getCtfOutPath(self, micFn):
+    def _getCtfOutPath(self, mic):
         return os.path.join(
-            self._root, pwutils.removeBaseExt(micFn) + "_out_ctf.log")
+            self._root, self._getBatchMicBase(mic) + "_out_ctf.log")
 
-    def _getCtfFitOutPath(self, micFn):
+    def _getCtfFitOutPath(self, mic):
         return os.path.join(
-            self._root, pwutils.removeBaseExt(micFn) + "_out_EPA.log")
+            self._root, self._getBatchMicBase(mic) + "_out_EPA.log")
 
 
 class TestGctfProcessingFailurePropagation(unittest.TestCase):
@@ -736,7 +745,8 @@ class TestGctfProcessingFailurePropagation(unittest.TestCase):
             )
 
             self.assertEqual(1, len(protocol.errors))
-            self.assertTrue(os.path.exists(protocol.collectedFor("mic_002")))
+            self.assertTrue(
+                os.path.exists(protocol.collectedFor("000002__mic_002")))
 
 
 
