@@ -122,9 +122,10 @@ class GctfStreamingBase:
         """Whether something is still in flight for this protocol.
 
         Work in flight is progress, however long it takes, so it must
-        never be counted towards a terminal stall. A protocol that does
-        not know how to answer this says so by returning True, which
-        simply means the stall detector stays out of its way.
+        never be counted towards a terminal stall. Each protocol answers
+        from what it has scheduled and not yet published; one that does
+        not know returns True, which keeps the stall detector out of its
+        way - and leaves it waiting forever on a stream that never ends.
         """
         return True
 
@@ -139,35 +140,35 @@ class GctfStreamingBase:
         flight - the protocol would otherwise sit there RUNNING for the
         rest of time. Say what is missing and fail instead.
         """
-        if terminalConsistent:
-            self._terminalStallSignature = None
-            self._terminalStallCount = 0
+        if terminalConsistent or self._hasActiveStreamingWork():
+            self.__dict__.setdefault('_terminalStallSignatures', {}).pop(
+                watermarkAttr, None)
+            self.__dict__.setdefault('_terminalStallCounts', {}).pop(
+                watermarkAttr, None)
 
             return
 
-        if self._hasActiveStreamingWork():
-            self._terminalStallCount = 0
-
-            return
-
+        # One count per input stream: a protocol polling two of them in
+        # turn would otherwise reset the other's count on every poll.
+        signatures = self.__dict__.setdefault('_terminalStallSignatures', {})
+        counts = self.__dict__.setdefault('_terminalStallCounts', {})
         signature = (inputSet.getSize(), len(knownIds),
                      getattr(self, watermarkAttr, 0))
 
-        if signature == getattr(self, '_terminalStallSignature', None):
-            self._terminalStallCount = getattr(
-                self, '_terminalStallCount', 0) + 1
+        if signature == signatures.get(watermarkAttr):
+            counts[watermarkAttr] = counts.get(watermarkAttr, 0) + 1
         else:
-            self._terminalStallSignature = signature
-            self._terminalStallCount = 1
+            signatures[watermarkAttr] = signature
+            counts[watermarkAttr] = 1
 
-        if self._terminalStallCount >= self.TERMINAL_STALL_POLLS:
+        if counts[watermarkAttr] >= self.TERMINAL_STALL_POLLS:
             raise RuntimeError(
                 "The input stream closed declaring %d items but only %d "
                 "are visible, and that has not changed in %d polls with "
                 "nothing left to process. Refusing to wait for rows that "
                 "are not coming."
                 % (inputSet.getSize(), len(knownIds),
-                   self._terminalStallCount))
+                   counts[watermarkAttr]))
 
     def _reconcileClosedStreamIds(self, inputSet, discoveredIds, knownIds,
                                   producerClosed, watermarkAttr):
@@ -392,7 +393,7 @@ class GctfStreamingBase:
                 seen.add(stepKey)
                 yield step
 
-    def _iterUnscannedSteps(self, scan):
+    def _iterUnscannedSteps(self, scan, includePrevious=True):
         """Yield the steps a previous scan has not consumed yet.
 
         Steps are appended, never reordered, so each list is walked from
@@ -400,7 +401,9 @@ class GctfStreamingBase:
         finished are carried over explicitly, since those are the only
         already-seen ones whose answer can still change.
         """
-        for attrName in ('_steps', '_prevSteps'):
+        attrNames = ('_steps', '_prevSteps') if includePrevious else ('_steps',)
+
+        for attrName in attrNames:
             steps = getattr(self, attrName, None) or []
             start = scan.cursors.get(attrName, 0)
 
@@ -470,7 +473,8 @@ class GctfStreamingBase:
         return {candidate for candidate in candidates
                 if keyType is None or isinstance(candidate, keyType)}
 
-    def _getStepArgScan(self, funcNames, onlyFinished, dictField, keyType):
+    def _getStepArgScan(self, funcNames, onlyFinished, dictField, keyType,
+                        includePrevious=True):
         scans = getattr(self, '_streamingStepScans', None)
 
         if scans is None:
@@ -478,7 +482,7 @@ class GctfStreamingBase:
             self._streamingStepScans = scans
 
         scanKey = (tuple(sorted(funcNames)), bool(onlyFinished), dictField,
-                   keyType)
+                   keyType, bool(includePrevious))
 
         scan = scans.get(scanKey)
 
@@ -489,26 +493,38 @@ class GctfStreamingBase:
         return scan
 
     def _collectStepArgKeys(self, funcNames, onlyFinished=True,
-                            dictField=None, keyType=None):
+                            dictField=None, keyType=None,
+                            includePrevious=True):
         """Collect the per-item keys carried by matching persisted steps.
 
         :param funcNames: step function names to match.
         :param onlyFinished: when True, only steps already FINISHED count;
-            when False, every persisted step counts (i.e. "scheduled").
+            when False, every step that has run or will still run counts
+            (i.e. "scheduled"). A step restored from an earlier run counts
+            only once FINISHED: pyworkflow never runs those again, so an
+            interrupted or failed one must be scheduled anew - otherwise
+            its item waits forever for it, or is dropped.
         :param dictField: set it when the step serializes the item as a dict
             (``args[0][dictField]`` holds the key) instead of carrying the
             key directly.
         :param keyType: optional type filter for the collected keys.
+        :param includePrevious: when False, only steps of this run count,
+            not the ones restored from an earlier run.
 
         The scan is incremental: the step graph grows with the stream, so
         re-parsing every step on every poll would cost O(steps processed
         so far) and get slower the longer the protocol runs.
         """
         scan = self._getStepArgScan(funcNames, onlyFinished, dictField,
-                                    keyType)
+                                    keyType, includePrevious)
 
-        for stepKey, step in self._iterUnscannedSteps(scan):
+        for stepKey, step in self._iterUnscannedSteps(scan, includePrevious):
             if self._getStepFuncName(step) not in funcNames:
+                scan.pending.discard(stepKey)
+                continue
+
+            if stepKey[0] == '_prevSteps' and not step.isFinished():
+                # Restored from an earlier run: it will never run again.
                 scan.pending.discard(stepKey)
                 continue
 

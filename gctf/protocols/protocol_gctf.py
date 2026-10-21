@@ -46,6 +46,14 @@ from gctf.protocols.protocol_streaming_base import GctfStreamingBase
 CTF_STEP_NAMES = ('estimateCtfStep', 'estimateCtfListStep')
 
 
+def isUsableCtf(ctfModel):
+    """False for the -999 placeholder of a failed or missing result."""
+    defocusU, defocusV = ctfModel.getDefocusU(), ctfModel.getDefocusV()
+
+    return (defocusU is not None and defocusV is not None
+            and defocusU >= 0 and defocusV >= 0)
+
+
 class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
     """ Estimates CTF on a set of micrographs using Gctf.
 
@@ -157,10 +165,16 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
                 continue
 
             if micKey in scheduledMicNames:
-                # Already has a step from an earlier run: it only needs
-                # publishing, so it must not be scheduled a second time.
-                self.micDict[micKey] = item
-                continue
+                if self._ctfResultIsUsable(item):
+                    # Already estimated by an earlier run: it only needs
+                    # publishing, so it must not be scheduled a second time.
+                    self.micDict[micKey] = item
+                    continue
+
+                # Its earlier estimation failed: estimate it again.
+                self._retriedMicNames = getattr(
+                    self, '_retriedMicNames', set())
+                self._retriedMicNames.add(micKey)
 
             self._pendingMics[micKey] = item
 
@@ -171,9 +185,28 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
         return self._collectStepArgKeys(CTF_STEP_NAMES, onlyFinished=False,
                                         keyType=str)
 
+    def _hasActiveStreamingWork(self):
+        """Micrographs scheduled or waiting for a batch, not yet published."""
+        return bool(getattr(self, 'micDict', None)
+                    or getattr(self, '_pendingMics', None))
+
     def _getFinishedCtfMicNames(self):
-        """Return micrograph names represented by finished CTF steps."""
-        return self._collectStepArgKeys(CTF_STEP_NAMES, keyType=str)
+        """Return micrograph names represented by finished CTF steps.
+
+        A micrograph estimated again in this run (its earlier result was
+        unusable) only counts once its new step has finished: its old step
+        finished too, and publishing on that would drop it once more.
+        """
+        finished = self._collectStepArgKeys(CTF_STEP_NAMES, keyType=str)
+        retried = getattr(self, '_retriedMicNames', None)
+
+        if retried:
+            finishedNow = self._collectStepArgKeys(CTF_STEP_NAMES, keyType=str,
+                                                   includePrevious=False)
+            finished = {name for name in finished
+                        if name not in retried or name in finishedNow}
+
+        return finished
 
     def _restoreProcessedMicsFromPersistentState(self):
         """Place the watermark past what a previous run already published.
@@ -230,6 +263,21 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
 
         if self.finished:
             self._updateStreamState(streamMode)
+            self._failIfNoCtfWasEstimated()
+
+    def _failIfNoCtfWasEstimated(self):
+        """A failed micrograph is left out, not published as -999; the run
+        fails only when that happened to every micrograph."""
+        if not getattr(self, '_knownMicIds', None):
+            return
+
+        output = getattr(self, 'outputCTF', None)
+
+        if output is None or output.getSize() == 0:
+            raise Exception("No CTF could be estimated for any of the %d "
+                            "micrographs; see the errors above. Continue "
+                            "estimates them again."
+                            % len(self._knownMicIds))
 
     def _checkNewInput(self):
         """Discover new micrographs directly from the logical input Set."""
@@ -346,17 +394,16 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
             pwutils.cleanPath(micPath)
 
             if attempted and not collected:
-                # Nothing at all came out of this batch: the step really did
-                # fail and has to say so, rather than reporting micrographs
-                # as estimated when none of them are.
-                raise Exception("Gctf produced no output for any micrograph "
-                                "in %s" % micPath)
+                self.error("ERROR: Gctf produced no output for any "
+                           "micrograph in %s" % micPath)
 
         except Exception:
+            # One failed batch must not stop the stream: its micrographs
+            # have no usable result, so they are left out of the output
+            # and estimated again on Continue.
             self.error("ERROR: Gctf has failed for %s/*.mrc" % micPath)
             import traceback
             traceback.print_exc()
-            raise
 
     def _createCtfModel(self, mic, updateSampling=True):
         #  When downsample option is used, we need to update the
@@ -368,9 +415,25 @@ class ProtGctf(GctfStreamingBase, ProtCTFMicrographs):
 
         ctf = self._gctfProgram.parseOutputAsCtf(
             self._getCtfOutPath(mic), psdFile=self._getPsdPath(mic))
+
+        # A missing or unusable result raises instead of becoming a -999
+        # CTF: pwem then leaves the micrograph out and lists it as failed.
+        if not isUsableCtf(ctf):
+            raise ValueError("No usable CTF estimation for micrograph %s"
+                             % mic.getObjId())
+
         ctf.setMicrograph(mic)
 
         return ctf
+
+    def _ctfResultIsUsable(self, mic):
+        """Whether an earlier run left a usable estimation for ``mic``."""
+        try:
+            self._createCtfModel(mic.clone(), updateSampling=False)
+        except Exception:
+            return False
+
+        return True
 
     def _createOutputStep(self):
         pass
