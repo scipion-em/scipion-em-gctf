@@ -39,10 +39,130 @@ from gctf.protocols.program_gctf import ProgramGctf
 
 
 class ProtGctf(ProtCTFMicrographs):
-    """ Estimates CTF on a set of micrographs using Gctf.
-
-    To find more information about Gctf go to:
+    """
+    Estimates the Contrast Transfer Function (CTF) of cryo-EM micrographs
+    using the Gctf package. The protocol is designed to determine optical
+    parameters such as defocus and astigmatism from electron microscopy
+    images, enabling downstream processing steps including particle picking,
+    refinement, reconstruction, and quality assessment. More info:
     https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/#gctf
+
+    AI Generated:
+
+    Gctf CTF Estimation (ProtGctf) — User Manual
+        Overview
+
+        The Gctf protocol performs Contrast Transfer Function estimation on
+        cryo-EM micrographs using the GPU-accelerated Gctf software package.
+        Its primary purpose is to characterize the optical effects introduced
+        by the electron microscope during image acquisition so that these
+        effects can later be corrected or compensated during reconstruction
+        and refinement procedures.
+
+        In cryo-EM workflows, accurate CTF estimation is one of the earliest
+        and most biologically important preprocessing steps. The protocol
+        determines parameters such as defocus values, astigmatism, and power
+        spectrum characteristics from each micrograph. Reliable estimation is
+        essential because downstream operations including particle alignment,
+        three-dimensional reconstruction, and high-resolution refinement all
+        depend strongly on the quality of the CTF model.
+
+        Inputs and General Workflow
+
+        The protocol accepts a set of micrographs as input. These micrographs
+        may originate from single-particle cryo-EM acquisitions collected
+        under a wide variety of imaging conditions. The protocol processes
+        each image independently and produces a corresponding CTF estimation
+        together with diagnostic outputs useful for visual inspection and
+        validation.
+
+        During execution, the protocol prepares the micrographs for analysis,
+        applies optional downsampling if requested, and estimates the CTF
+        parameters using Gctf. The resulting outputs are organized so they
+        can be directly consumed by later processing stages inside Scipion
+        workflows.
+
+        Downsampling and Frequency Considerations
+
+        One of the key configurable options is the CTF downsampling factor.
+        Downsampling reduces the effective image size used during estimation,
+        which can significantly accelerate processing and improve visibility
+        of the Thon rings under certain conditions.
+
+        From a practical biological perspective, moderate downsampling is
+        often beneficial when working with very large micrographs or when the
+        Thon rings are overly concentrated near the origin of the power
+        spectrum. However, excessive downsampling may reduce the visibility
+        of high-frequency information and can introduce aliasing effects that
+        negatively affect estimation accuracy.
+
+        In most routine workflows, users begin with no downsampling and only
+        introduce moderate factors when computational efficiency or ring
+        visibility becomes problematic.
+
+        GPU Acceleration and High-Throughput Processing
+
+        Gctf is optimized for GPU execution, making this protocol especially
+        suitable for modern cryo-EM facilities and automated processing
+        pipelines. The protocol can process multiple micrographs efficiently
+        and is compatible with streaming-oriented workflows where data are
+        analyzed during acquisition.
+
+        This capability is particularly important in high-throughput
+        environments where rapid feedback about microscope performance and
+        dataset quality is required. Early detection of imaging problems can
+        prevent unnecessary collection of unusable data and improve overall
+        experimental efficiency.
+
+        Interpretation of the Outputs
+
+        The protocol produces CTF models associated with each input
+        micrograph together with diagnostic power spectrum files and fitting
+        information. These outputs allow users to evaluate whether the
+        estimated defocus and astigmatism values are physically reasonable
+        and whether the Thon ring fitting quality is sufficient for
+        high-resolution analysis.
+
+        In biological practice, users typically inspect the visibility and
+        continuity of the fitted Thon rings as indicators of image quality.
+        Strong and extended rings usually suggest good preservation of
+        high-resolution signal, whereas weak or poorly fitted rings may
+        indicate problems such as drift, charging, contamination, excessive
+        ice thickness, or low signal-to-noise ratio.
+
+        The estimated parameters also provide important information about the
+        acquisition conditions across the dataset. Large defocus variations
+        or systematic astigmatism trends may reveal microscope alignment
+        issues or acquisition inconsistencies that should be considered
+        before further analysis.
+
+        Practical Recommendations
+
+        For most datasets, the default Gctf settings provide a good starting
+        point. Users should initially verify the estimated defocus values and
+        visually inspect a representative subset of power spectra before
+        processing the entire dataset.
+
+        Moderate downsampling may improve performance for large datasets, but
+        users interested in the highest possible resolution should verify
+        that high-frequency information remains well fitted. GPU resources
+        should also be configured carefully to ensure stable execution and
+        efficient workload distribution.
+
+        When processing heterogeneous datasets acquired over multiple
+        sessions, it is advisable to monitor trends in the estimated CTF
+        parameters because abrupt changes may indicate acquisition problems
+        or microscope instability.
+
+        Final Perspective
+
+        CTF estimation is not simply a technical preprocessing step but a
+        fundamental component of reliable cryo-EM analysis. Accurate optical
+        characterization directly influences the interpretability and
+        attainable resolution of the final reconstruction. Careful validation
+        of the estimated parameters, thoughtful use of downsampling, and
+        consistent quality monitoring are essential practices for obtaining
+        biologically meaningful results in cryo-EM workflows.
     """
     _label = 'ctf estimation'
     _devStatus = PROD
