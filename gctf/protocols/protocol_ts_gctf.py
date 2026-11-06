@@ -36,11 +36,18 @@ from pwem.convert.headers import MRC, getFileFormat
 from pwem.emlib.image import DT_FLOAT, ImageHandler
 from pwem.protocols import EMProtocol
 
-from tomo.objects import CTFTomo, SetOfCTFTomoSeries, TiltImage, CTFTomoSeries
+from tomo.objects import CTFTomo, SetOfCTFTomoSeries, TiltImage, CTFTomoSeries, TiltSeries
 from tomo.protocols.protocol_ts_estimate_ctf import createCtfParams
 
 from gctf.protocols.program_gctf import ProgramGctf
 from gctf import Plugin
+from gctf.protocols.protocol_gctf import isUsableCtf
+
+# The steps return one file here as their result file. On Continue, pyworkflow keeps a finished step
+# finished only while its result files exist, so removing the ones of a tilt series that failed makes its
+# steps run again.
+STEP_RESULTS_DIR = 'STEP_RESULTS'
+TS_STEPS = ('process', 'output')
 
 
 class TsGctfOutputs(Enum):
@@ -88,6 +95,7 @@ class ProtTsGctf(EMProtocol):
     # --------------------------- STEPS functions ----------------------------
     def _insertAllSteps(self):
         self._initialize()
+        self._prepareFailedForRetry()
         pIdList = []
         for tsId in self.tsDict.keys():
             pidProcess = self._insertFunctionStep(self.processTiltSeriesStep,
@@ -116,14 +124,54 @@ class ProtTsGctf(EMProtocol):
             workingDir = self._getTiWorkingDir(ti)
             tiFnMrc = os.path.join(workingDir, self.getTiPrefix(ti) + '.mrc')
             pwutils.makePath(workingDir)
-            self._convertInputTi(ti, tiFnMrc)
+            try:
+                self._convertInputTi(ti, tiFnMrc)
+            except Exception as e:
+                # Not raised: the step would fail and take the whole run with it. The tilt image has no
+                # CTF, which createOutputStep judges.
+                self.error("ERROR: Converting %s has failed: %s" % (ti, e))
+                continue
             self._estimateCtf(workingDir, tiFnMrc)
+        return self._stepResultFile('process_%s' % tsId)
 
     def createOutputStep(self, tsId):
+        self._createOutput(tsId)
+        return self._stepResultFile('output_%s' % tsId)
+
+    def _readTsCtfs(self, ts):
+        """ The CTF of every tilt image of the tilt series, or None when gctf gave no usable result for it.
+
+        Read in full before anything is published, so a tilt series is published whole or not at all. """
+        try:
+            ctfTomos = []
+            for tiltImage in ts.iterItems():
+                ctfTomo = self.getCtf(tiltImage)
+                ctfTomo.setIndex(tiltImage.getIndex())
+                ctfTomo.setAcquisitionOrder(tiltImage.getAcquisitionOrder())
+                ctfTomos.append(ctfTomo)
+        except Exception as e:
+            self.error("ERROR: The CTF of %s could not be read: %s" % (ts.getTsId(), e))
+            return None
+        # Some tilt images without a CTF are kept as they were; none at all is a failure
+        if not any(isUsableCtf(ctfTomo) for ctfTomo in ctfTomos):
+            return None
+        return ctfTomos
+
+    def _createOutput(self, tsId):
+        ts = self.tsDict[tsId]
+        ctfTomos = self._readTsCtfs(ts)
+        if ctfTomos is None:
+            # Not published: Continue estimates it again
+            self.error("ERROR: No CTF was estimated for %s; it is left out." % tsId)
+            self._failedTsIds().add(tsId)
+            return
+
         with self._lock:
+            if tsId in self._publishedTsIds():
+                # Published by a previous execution of this step, e.g. before a Continue
+                return
             outCtfSet = self.getOutputCtfTomoSet()
             # Generate the current CTF tomo series item
-            ts = self.tsDict[tsId]
             newCTFTomoSeries = CTFTomoSeries()
             newCTFTomoSeries.copyInfo(ts)
             newCTFTomoSeries.setTiltSeries(ts)
@@ -131,18 +179,52 @@ class ProtTsGctf(EMProtocol):
             newCTFTomoSeries.setTsId(ts.getTsId())
             outCtfSet.append(newCTFTomoSeries)
 
-            # Generate the ti CTF and populate the corresponding CTF tomo series
-            for i, tiltImage in enumerate(ts.iterItems()):
-                ctfTomo = self.getCtf(tiltImage)
-                ctfTomo.setIndex(tiltImage.getIndex())
-                ctfTomo.setAcquisitionOrder(tiltImage.getAcquisitionOrder())
+            # Populate the CTF tomo series with the CTFs already read
+            for ctfTomo in ctfTomos:
                 newCTFTomoSeries.append(ctfTomo)
 
             outCtfSet.update(newCTFTomoSeries)
             self._store()
 
     def closeOutputSetsStep(self):
+        # Closed in any case: an open output keeps its consumers waiting
         self._closeOutputSet()
+        if self._failedTsIds() and not self._publishedTsIds():
+            raise Exception("Gctf failed for every one of the %d tilt series; see the errors above. "
+                            "Continue estimates them again." % len(self._failedTsIds()))
+        return self._stepResultFile('close')
+
+    # --------------------------- Continue -----------------------------------
+    def _failedTsIds(self):
+        """ The tilt series of this execution with no usable CTF: in no output. """
+        return self.__dict__.setdefault('_failedTsIdsSet', set())
+
+    def _publishedTsIds(self):
+        outCtfSet = getattr(self, TsGctfOutputs.CTFs.name, None)
+        return set(outCtfSet.getUniqueValues(TiltSeries.TS_ID_FIELD)) if outCtfSet else set()
+
+    def _stepResultPath(self, name):
+        return self._getExtraPath(STEP_RESULTS_DIR, '%s.TXT' % name)
+
+    def _stepResultFile(self, name):
+        """ The result file of a step: Continue runs the step again once it is removed. """
+        pwutils.makePath(self._getExtraPath(STEP_RESULTS_DIR))
+        path = self._stepResultPath(name)
+        open(path, 'a').close()
+        return path
+
+    def _prepareFailedForRetry(self):
+        """ Have Continue estimate again the tilt series that failed (or were never published).
+
+        pyworkflow does not run a finished step again, so their steps, and the closing one, lose their
+        result files. """
+        publishedTsIds = self._publishedTsIds()
+        retried = [tsId for tsId in self.tsDict if tsId not in publishedTsIds
+                   and any(os.path.exists(self._stepResultPath('%s_%s' % (kind, tsId))) for kind in TS_STEPS)]
+        for tsId in retried:
+            pwutils.cleanPath(*[self._stepResultPath('%s_%s' % (kind, tsId)) for kind in TS_STEPS])
+        if retried:
+            pwutils.cleanPath(self._stepResultPath('close'))
 
     # --------------------------- INFO functions ------------------------------
     def _validate(self):
@@ -154,7 +236,11 @@ class ProtTsGctf(EMProtocol):
         """ Parse the CTF object estimated for this Tilt-Image. """
         prefix = self.getTiPrefix(ti)
         psd = self._getExtraPath(prefix + '_ctf.mrc')
-        outCtf = self._getTmpPath(prefix + '_gctf.log')
+        # Kept in extra: tmp is cleaned when the run ends, and a later Continue reads it again. Older
+        # runs left it in tmp.
+        outCtf = self._getExtraPath(prefix + '_gctf.log')
+        if not os.path.exists(outCtf):
+            outCtf = self._getTmpPath(prefix + '_gctf.log')
         ctfModel = self._gctfProgram.parseOutputAsCtf(outCtf, psdFile=psd)
         ctfTomo = CTFTomo.ctfModelToCtfTomo(ctfModel)
 
@@ -178,7 +264,7 @@ class ProtTsGctf(EMProtocol):
             # move output from tmp to extra
             pwutils.moveFile(_getFile(ext),
                              self._getExtraPath(micBase + '_ctf.mrc'))
-            pwutils.moveFile(_getFile('_gctf.log'), self._getTmpPath())
+            pwutils.moveFile(_getFile('_gctf.log'), self._getExtraPath())
             pwutils.moveFile(_getFile('_EPA.log'),
                              self._getExtraPath())
 
