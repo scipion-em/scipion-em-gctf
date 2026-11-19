@@ -1,3 +1,11 @@
+3.3.0:
+ Users:
+    - Streaming is reliable: Continue/Resume picks up where the run stopped: it reruns the steps an interrupted run left unfinished, without hanging, losing or repeating items
+    - A failed item no longer fails the whole run: it is left out of the outputs and retried on Continue; the run fails only if every item failed
+    - Failed micrographs are retried instead of being published with -999 CTF values, and one micrograph no longer overwrites another
+    - Tilt series: the ones with no usable CTF are estimated again on Continue; the gctf logs are kept in extra
+ Developers:
+    - Streaming no longer depends on the database backend (watermark discovery)
 3.2.1: fix indirect pointers in the CTF estimation for TS.
 3.2:
  Users:
