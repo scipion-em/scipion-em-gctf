@@ -36,10 +36,179 @@ from gctf.constants import CCC
 
 class ProgramGctf:
     """
-    Wrapper of Gctf program that will handle parameters definition
-    and also execution of the program with the proper arguments.
-    This class is not a Protocol, but it is related, since it can be used from
-    protocols that perform CTF estimation.
+    Provides an interface for configuring and executing Gctf-based Contrast Transfer Function estimation workflows in cryo-EM image processing. The class centralizes the definition of acquisition, optical, and refinement parameters required for reliable CTF determination, allowing different protocols to perform consistent and reproducible analyses of electron micrographs. Its main objective is to simplify the interaction with the Gctf engine while exposing biologically relevant controls that influence the quality and interpretability of CTF estimation results. More info: https://www2.mrc-lmb.cam.ac.uk/research/locally-developed-software/zhang-software/#gctf
+
+    AI Generated:
+
+    Gctf Program Wrapper (ProgramGctf) - User Manual
+        Overview
+
+        The Gctf Program Wrapper provides a unified environment for preparing,
+        configuring, and executing CTF estimation tasks using the Gctf software
+        package. In cryo-EM workflows, accurate CTF estimation is essential
+        because it determines how microscope optics have altered the recorded
+        image and directly influences the quality of downstream reconstruction,
+        particle alignment, and refinement procedures.
+
+        This wrapper is intended to support protocols that require automated
+        CTF determination while maintaining flexibility for advanced users who
+        need precise control over acquisition parameters, search ranges, and
+        refinement strategies. The class acts as an integration layer between
+        biological image-processing workflows and the external Gctf executable,
+        ensuring that microscope metadata and processing settings are applied
+        consistently across datasets.
+
+        Biological Context and Importance
+
+        In transmission electron microscopy, the CTF modifies image contrast in
+        a frequency-dependent manner. Correct estimation of defocus and
+        astigmatism is therefore critical for recovering high-resolution
+        structural information. Poor CTF estimation can reduce map quality,
+        introduce reconstruction artifacts, or prevent accurate interpretation
+        of flexible or heterogeneous biological assemblies.
+
+        This wrapper is particularly relevant for high-throughput cryo-EM
+        facilities and automated processing pipelines where large collections
+        of micrographs must be analyzed reproducibly. It supports both routine
+        datasets and more challenging acquisitions involving phase plates,
+        strong astigmatism, or high-resolution refinement strategies.
+
+        Input Parameters and Acquisition Information
+
+        The wrapper manages all acquisition-related parameters required for CTF
+        estimation, including sampling rate, acceleration voltage, spherical
+        aberration, amplitude contrast, and detector pixel size. These
+        parameters define the physical microscope model used during estimation
+        and should accurately reflect the experimental setup.
+
+        For biological users, ensuring correct acquisition metadata is one of
+        the most important prerequisites for obtaining meaningful CTF values.
+        Incorrect voltage or pixel size values can propagate systematic errors
+        throughout the entire reconstruction workflow.
+
+        The wrapper also supports optional downsampling during CTF estimation.
+        Downsampling is often beneficial when Thon rings are concentrated at
+        very low spatial frequencies or when computational efficiency is
+        important. In practical workflows, moderate downsampling can accelerate
+        processing substantially without compromising estimation quality for
+        medium-resolution datasets.
+
+        Defocus and Resolution Search Strategy
+
+        The wrapper exposes biologically meaningful search ranges for defocus
+        and resolution refinement. These parameters determine the frequency
+        interval over which the CTF model is optimized and strongly influence
+        estimation stability.
+
+        Wide defocus ranges are useful when imaging conditions vary strongly
+        across a dataset or when acquisition metadata is uncertain. Narrower
+        ranges improve efficiency and may stabilize estimation in homogeneous
+        datasets collected under controlled conditions.
+
+        Resolution limits are equally important. Including excessively high
+        frequencies in noisy datasets may lead to unstable fitting, whereas
+        restricting the analysis to lower frequencies can improve robustness
+        for difficult samples or low-dose acquisitions.
+
+        Astigmatism and Optical Refinement
+
+        The wrapper supports astigmatism estimation and refinement, which are
+        critical for accurately modeling imperfections in microscope optics.
+        Biological datasets acquired under suboptimal alignment conditions or
+        from older instruments may exhibit substantial astigmatism, making
+        refinement especially important.
+
+        Additional refinement controls are available for high-resolution
+        analysis. These options become particularly useful when processing
+        datasets intended for near-atomic reconstructions, where small errors
+        in CTF estimation can noticeably affect map interpretability and model
+        building accuracy.
+
+        EPA Visualization and Spectral Interpretation
+
+        The Equiphase Averaging functionality improves the visual appearance
+        and interpretability of power spectra generated during CTF analysis.
+        Although this enhancement does not directly alter the numerical CTF
+        determination, it can significantly help users visually inspect the
+        quality of Thon ring fitting and identify problematic micrographs.
+
+        In biological practice, these visual diagnostics are frequently used
+        during data collection sessions to assess ice quality, contamination,
+        beam-induced motion, or microscope stability. Cleaner spectra often
+        correlate with higher-quality downstream reconstructions.
+
+        Phase Plate Data Processing
+
+        The wrapper includes dedicated support for phase-shift estimation in
+        datasets acquired using phase plates. Such experiments require special
+        treatment because the phase plate introduces additional optical shifts
+        that must be estimated accurately for proper reconstruction.
+
+        Phase-plate cryo-EM is particularly valuable for weakly scattering
+        biological specimens, small proteins, and low-contrast complexes.
+        However, the additional optical complexity increases the importance of
+        robust parameter selection and refinement stability.
+
+        Validation and Refinement Options
+
+        Validation tools are available to help assess the reliability of the
+        estimated parameters. These checks are especially useful in automated
+        pipelines where large numbers of micrographs are processed without
+        continuous manual inspection.
+
+        The wrapper also supports different refinement strategies for difficult
+        datasets. In challenging biological cases, such as thick ice, strong
+        preferred orientation, or low particle density, testing alternative
+        refinement approaches may substantially improve estimation quality.
+
+        GPU Acceleration and High-Throughput Processing
+
+        The class supports GPU-oriented execution strategies intended for
+        modern cryo-EM processing environments. High-throughput facilities
+        frequently rely on GPU acceleration to process large datasets in near
+        real time during microscope acquisition sessions.
+
+        Efficient GPU usage becomes especially important for large-scale
+        single-particle studies, tomography workflows, and screening campaigns
+        where thousands of micrographs must be analyzed rapidly.
+
+        Outputs and Downstream Usage
+
+        The resulting CTF information includes defocus estimation, astigmatism,
+        spectral diagnostics, and associated metadata required for subsequent
+        cryo-EM processing stages. These outputs are typically consumed by
+        particle picking, motion correction validation, particle refinement,
+        and 3D reconstruction protocols.
+
+        From a biological perspective, accurate CTF estimation contributes
+        directly to improved map resolution, better density interpretability,
+        and more reliable structural conclusions.
+
+        Practical Recommendations
+
+        For routine cryo-EM workflows, it is generally advisable to begin with
+        conservative search ranges and standard refinement settings. Visual
+        inspection of the resulting spectra remains important, particularly for
+        heterogeneous datasets or difficult imaging conditions.
+
+        Moderate downsampling often improves efficiency without major loss of
+        information. High-resolution refinement should typically be reserved
+        for datasets that already demonstrate strong high-frequency signal.
+
+        For phase-plate datasets, users should carefully tune phase-shift
+        search ranges and monitor fitting stability. In difficult datasets,
+        comparing multiple refinement strategies may help identify the most
+        reliable solution.
+
+        Final Perspective
+
+        Reliable CTF estimation is one of the foundational steps in cryo-EM
+        image processing. The ProgramGctf wrapper provides a structured and
+        flexible interface for controlling this process while maintaining
+        compatibility with automated and high-throughput workflows. Careful
+        selection of optical parameters, refinement settings, and validation
+        strategies is essential for achieving biologically meaningful and
+        high-resolution structural results.
     """
     def __init__(self, protocol):
         self._args, self._params = self._getArgs(protocol)  # Load general arguments
